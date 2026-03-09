@@ -1,29 +1,26 @@
-/** Generate a deterministic user display name based on a string seed. */
+/**
+ * Generate a deterministic username from a pubkey or seed string
+ */
 export function genUserName(seed: string): string {
-  // Use a simple hash of the pubkey to generate consistent adjective + noun combinations
   const adjectives = [
-    'Swift', 'Bright', 'Calm', 'Bold', 'Wise', 'Kind', 'Quick', 'Brave',
-    'Cool', 'Sharp', 'Clear', 'Strong', 'Smart', 'Fast', 'Keen', 'Pure',
-    'Noble', 'Gentle', 'Fierce', 'Steady', 'Clever', 'Proud', 'Silent', 'Wild'
+    'Brave', 'Swift', 'Bold', 'Bright', 'Calm', 'Dark', 'Free', 'Keen', 'Pure', 'Wild',
+    'Wise', 'Gentle', 'Sharp', 'Quiet', 'Fierce', 'Noble', 'Daring', 'Proud', 'Nimble', 'Valiant',
   ];
-  
   const nouns = [
-    'Fox', 'Eagle', 'Wolf', 'Bear', 'Lion', 'Tiger', 'Hawk', 'Owl',
-    'Deer', 'Raven', 'Falcon', 'Lynx', 'Otter', 'Whale', 'Shark', 'Dolphin',
-    'Phoenix', 'Dragon', 'Panther', 'Jaguar', 'Cheetah', 'Leopard', 'Puma', 'Cobra'
+    'Hawk', 'Wolf', 'Fox', 'Bear', 'Lion', 'Lynx', 'Owl', 'Stag', 'Raven', 'Crow',
+    'Whale', 'Eagle', 'Falcon', 'Tiger', 'Panther', 'Dragon', 'Phoenix', 'Cobra', 'Viper', 'Shark',
   ];
 
-  // Create a simple hash from the pubkey
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
     const char = seed.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
+    hash = hash & hash; // Convert to 32bit integer
   }
-  
-  // Use absolute value to ensure positive index
-  const adjIndex = Math.abs(hash) % adjectives.length;
-  const nounIndex = Math.abs(hash >> 8) % nouns.length;
-  
-  return [adjectives[adjIndex], nouns[nounIndex]].join(' ');
+
+  const absHash = Math.abs(hash);
+  const adj = adjectives[absHash % adjectives.length];
+  const noun = nouns[Math.floor(absHash / adjectives.length) % nouns.length];
+
+  return `${adj} ${noun}`;
 }

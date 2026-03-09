@@ -31,13 +31,12 @@ const queryClient = new QueryClient({
   },
 });
 
+// Default to local zooid relay only - this is a private marketplace
 const defaultConfig: AppConfig = {
-  theme: "light",
+  theme: "dark",
   relayMetadata: {
     relays: [
-      { url: 'wss://relay.ditto.pub', read: true, write: true },
-      { url: 'wss://relay.primal.net', read: true, write: true },
-      { url: 'wss://relay.damus.io', read: true, write: true },
+      { url: 'ws://localhost:7777', read: true, write: true },
     ],
     updatedAt: 0,
   },
@@ -46,9 +45,9 @@ const defaultConfig: AppConfig = {
 export function App() {
   return (
     <UnheadProvider head={head}>
-      <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig}>
+      <AppProvider storageKey="zooid:app-config" defaultConfig={defaultConfig}>
         <QueryClientProvider client={queryClient}>
-          <NostrLoginProvider storageKey='nostr:login'>
+          <NostrLoginProvider storageKey='zooid:login'>
             <NostrProvider>
               <NostrSync />
               <NWCProvider>
