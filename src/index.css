@@ -99,3 +99,25 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* QR scan line animation */
+@keyframes scan-line {
+  0%   { top: 1.5rem; opacity: 1; }
+  50%  { opacity: 0.6; }
+  100% { top: calc(100% - 1.5rem); opacity: 1; }
+}
+
+.animate-scan-line {
+  animation: scan-line 2s ease-in-out infinite alternate;
+  position: absolute;
+}
+
+/* Safe area padding for iOS PWA notch */
+.safe-area-inset {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Prevent overscroll bounce on iOS PWA */
+html, body {
+  overscroll-behavior: none;
+}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSeoMeta } from '@unhead/react';
-import { Save, Loader2, Wifi, WifiOff, PlusCircle, Trash2, Settings } from 'lucide-react';
+import { Save, Loader2, Wifi, PlusCircle, Trash2, Settings, LogOut, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/useToast';
 import { EditProfileForm } from '@/components/EditProfileForm';
 import { RelayStatusBadge } from '@/components/RelayStatusBadge';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useLoginActions } from '@/hooks/useLoginActions';
 import { LoginArea } from '@/components/auth/LoginArea';
 
 interface RelayEntry {
@@ -26,6 +27,7 @@ export function SettingsPage() {
 
   const { config, updateConfig } = useAppContext();
   const { user } = useCurrentUser();
+  const { logout } = useLoginActions();
   const { toast } = useToast();
 
   const [relays, setRelays] = useState<RelayEntry[]>(config.relayMetadata.relays);
@@ -189,6 +191,43 @@ export function SettingsPage() {
                 <p className="text-sm text-zinc-400 mb-4">Sign in to edit your profile.</p>
                 <LoginArea className="max-w-xs mx-auto" />
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Danger zone */}
+        <Card className="bg-zinc-900/80 border-red-900/30">
+          <CardHeader>
+            <CardTitle className="text-zinc-300 text-base">Leave this market</CardTitle>
+            <CardDescription className="text-zinc-500">
+              Clears your relay connection. You'll need to scan a new QR code to re-join.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button
+              variant="outline"
+              className="w-full border-red-900/50 text-red-400 hover:bg-red-900/20 hover:text-red-300"
+              onClick={() => {
+                updateConfig(current => ({
+                  ...current,
+                  relayMetadata: { relays: [], updatedAt: 0 },
+                }));
+                setRelays([]);
+                toast({ title: 'Relay cleared — scan a new QR code to rejoin' });
+              }}
+            >
+              <QrCode className="w-4 h-4 mr-2" />
+              Clear relay &amp; re-scan
+            </Button>
+            {user && (
+              <Button
+                variant="outline"
+                className="w-full border-red-900/50 text-red-400 hover:bg-red-900/20 hover:text-red-300"
+                onClick={() => logout()}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign out
+              </Button>
             )}
           </CardContent>
         </Card>

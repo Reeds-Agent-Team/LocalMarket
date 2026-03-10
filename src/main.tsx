@@ -9,6 +9,15 @@ import './index.css';
 
 import '@fontsource-variable/inter';
 
+// Register service worker for PWA offline support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // SW registration failed — app still works, just no offline cache
+    });
+  });
+}
+
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
     <App />

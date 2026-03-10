@@ -13,6 +13,8 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { NWCProvider } from '@/contexts/NWCContext';
 import { AppConfig } from '@/contexts/AppContext';
+import { OnboardingGate } from '@/components/OnboardingGate';
+import { InstallPrompt } from '@/components/InstallPrompt';
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -31,13 +33,11 @@ const queryClient = new QueryClient({
   },
 });
 
-// Default to local zooid relay only - this is a private marketplace
+// Default config: NO relay pre-configured — onboarding requires QR scan to join
 const defaultConfig: AppConfig = {
   theme: "dark",
   relayMetadata: {
-    relays: [
-      { url: 'ws://localhost:7777', read: true, write: true },
-    ],
+    relays: [], // Empty by design — user must scan QR to get a relay
     updatedAt: 0,
   },
 };
@@ -53,8 +53,11 @@ export function App() {
               <NWCProvider>
                 <TooltipProvider>
                   <Toaster />
+                  <InstallPrompt />
                   <Suspense>
-                    <AppRouter />
+                    <OnboardingGate>
+                      <AppRouter />
+                    </OnboardingGate>
                   </Suspense>
                 </TooltipProvider>
               </NWCProvider>
