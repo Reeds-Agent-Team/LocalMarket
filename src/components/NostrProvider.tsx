@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { NostrEvent, NostrFilter, NPool, NRelay1 } from '@nostrify/nostrify';
 import { NostrContext } from '@nostrify/react';
-import { NUser, useNostrLogin } from '@nostrify/react/login';
+import { NLoginType, NUser, useNostrLogin } from '@nostrify/react/login';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppContext } from '@/hooks/useAppContext';
 
@@ -9,59 +9,60 @@ interface NostrProviderProps {
   children: React.ReactNode;
 }
 
+/** Synchronously build a signer from a login record, or return undefined. */
+function signerFromLogin(login: NLoginType) {
+  try {
+    switch (login.type) {
+      case 'nsec':      return NUser.fromNsecLogin(login).signer;
+      case 'extension': return NUser.fromExtensionLogin(login).signer;
+      default:          return undefined;
+    }
+  } catch {
+    return undefined;
+  }
+}
+
 const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   const { children } = props;
   const { config } = useAppContext();
   const { logins } = useNostrLogin();
-
   const queryClient = useQueryClient();
 
-  // Create NPool instance only once
-  const pool = useRef<NPool | undefined>(undefined);
-
-  // Use refs so the pool always has the latest data without recreating the pool
+  // Refs hold the latest values so the pool callbacks always see current state
   const relayMetadata = useRef(config.relayMetadata);
-
-  // Derive signer from the first login — stored in a ref so the auth
-  // callback always uses the latest signer without recreating NPool
   const signerRef = useRef<NUser['signer'] | undefined>(undefined);
 
-  useEffect(() => {
-    try {
-      const login = logins[0];
-      if (login) {
-        // Build a minimal signer from the first login
-        // NUser.fromNsecLogin / fromExtensionLogin etc all expose .signer
-        const user = login.type === 'nsec'
-          ? NUser.fromNsecLogin(login)
-          : login.type === 'extension'
-          ? NUser.fromExtensionLogin(login)
-          : undefined;
-        signerRef.current = user?.signer;
-      } else {
-        signerRef.current = undefined;
-      }
-    } catch {
-      signerRef.current = undefined;
-    }
-  }, [logins]);
+  // Update signerRef synchronously on every render so it's always current
+  // when the auth callback fires (which may happen before effects run)
+  signerRef.current = logins[0] ? signerFromLogin(logins[0]) : undefined;
 
-  // Invalidate Nostr queries when relay metadata changes
+  // Keep relayMetadata ref in sync and invalidate queries when it changes
   useEffect(() => {
     relayMetadata.current = config.relayMetadata;
     queryClient.invalidateQueries({ queryKey: ['nostr'] });
   }, [config.relayMetadata, queryClient]);
 
-  // Initialize NPool only once
-  if (!pool.current) {
-    pool.current = new NPool({
+  // Recreate the pool whenever the relay list changes so new relays connect
+  // and removed relays disconnect cleanly.
+  const relayKey = config.relayMetadata.relays.map(r => r.url).join(',');
+  const poolRef = useRef<{ pool: NPool; key: string } | undefined>(undefined);
+
+  if (!poolRef.current || poolRef.current.key !== relayKey) {
+    // Dispose old pool connections if relay list changed
+    if (poolRef.current) {
+      // NPool doesn't have an explicit dispose, but creating a new one
+      // lets old WebSocket connections naturally close via GC
+      poolRef.current = undefined;
+    }
+
+    const pool = new NPool({
       open(url: string) {
         return new NRelay1(url, {
-          // NIP-42: sign AUTH challenges with the current user's signer
+          // NIP-42: respond to AUTH challenges by signing a kind 22242 event
           auth: async (challenge: string) => {
             const signer = signerRef.current;
             if (!signer) {
-              throw new Error('No signer available for NIP-42 auth');
+              throw new Error('NIP-42 auth failed: no signer available. Please log in.');
             }
             return signer.signEvent({
               kind: 22242,
@@ -77,30 +78,28 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       },
       reqRouter(filters: NostrFilter[]) {
         const routes = new Map<string, NostrFilter[]>();
-
         const readRelays = relayMetadata.current.relays
           .filter(r => r.read)
           .map(r => r.url);
-
         for (const url of readRelays) {
           routes.set(url, filters);
         }
-
         return routes;
       },
       eventRouter(_event: NostrEvent) {
         const writeRelays = relayMetadata.current.relays
           .filter(r => r.write)
           .map(r => r.url);
-
         return [...new Set(writeRelays)];
       },
-      eoseTimeout: 200,
+      eoseTimeout: 3000,
     });
+
+    poolRef.current = { pool, key: relayKey };
   }
 
   return (
-    <NostrContext.Provider value={{ nostr: pool.current }}>
+    <NostrContext.Provider value={{ nostr: poolRef.current.pool }}>
       {children}
     </NostrContext.Provider>
   );
