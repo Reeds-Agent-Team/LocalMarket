@@ -21,7 +21,7 @@ export function OnboardingShell() {
         </div>
         <div className="text-center">
           <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">
-            zooid<span className="text-violet-400">market</span>
+            local<span className="text-violet-400">market</span>
           </h1>
           <p className="text-sm text-zinc-500 mt-0.5">Your private local market</p>
         </div>

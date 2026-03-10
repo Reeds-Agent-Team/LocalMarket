@@ -33,7 +33,7 @@ export function Layout({ children }: LayoutProps) {
               <ShoppingBag className="w-4 h-4 text-white" />
             </div>
             <span className="font-bold text-lg tracking-tight text-zinc-100">
-              zooid<span className="text-violet-400">market</span>
+              local<span className="text-violet-400">market</span>
             </span>
           </Link>
 

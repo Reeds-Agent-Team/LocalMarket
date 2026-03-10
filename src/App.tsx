@@ -45,9 +45,9 @@ const defaultConfig: AppConfig = {
 export function App() {
   return (
     <UnheadProvider head={head}>
-      <AppProvider storageKey="zooid:app-config" defaultConfig={defaultConfig}>
+      <AppProvider storageKey="localmarket:app-config" defaultConfig={defaultConfig}>
         <QueryClientProvider client={queryClient}>
-          <NostrLoginProvider storageKey='zooid:login'>
+          <NostrLoginProvider storageKey='localmarket:login'>
             <NostrProvider>
               <NostrSync />
               <NWCProvider>

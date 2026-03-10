@@ -22,7 +22,7 @@ const CATEGORIES = ['electronics', 'clothing', 'tools', 'food', 'books', 'servic
 const CURRENCIES = ['sats', 'BTC', 'USD', 'EUR', 'GBP'];
 
 export function CreateListingPage() {
-  useSeoMeta({ title: 'Create Listing — zooidmarket' });
+  useSeoMeta({ title: 'Create Listing — localmarket' });
 
   const navigate = useNavigate();
   const { user } = useCurrentUser();

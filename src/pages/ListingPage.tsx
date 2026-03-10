@@ -54,7 +54,7 @@ export function ListingPage() {
   const isOwner = user?.pubkey === pubkey;
 
   useSeoMeta({
-    title: listing?.title ? `${listing.title} — zooidmarket` : 'Listing — zooidmarket',
+    title: listing?.title ? `${listing.title} — localmarket` : 'Listing — localmarket',
     description: listing?.summary,
   });
 

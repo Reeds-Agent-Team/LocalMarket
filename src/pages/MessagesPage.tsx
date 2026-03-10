@@ -10,7 +10,7 @@ import { LoginArea } from '@/components/auth/LoginArea';
 import { MessageSquare } from 'lucide-react';
 
 export function MessagesPage() {
-  useSeoMeta({ title: 'Messages — zooidmarket' });
+  useSeoMeta({ title: 'Messages — localmarket' });
   const { npub } = useParams<{ npub?: string }>();
   const { user } = useCurrentUser();
   const location = useLocation();

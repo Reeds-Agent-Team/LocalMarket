@@ -42,7 +42,7 @@ export function ProfilePage() {
   });
 
   useSeoMeta({
-    title: `${displayName} — zooidmarket`,
+    title: `${displayName} — localmarket`,
     description: authorMeta?.about,
   });
 

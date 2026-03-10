@@ -18,7 +18,7 @@ const CATEGORIES = ['all', 'electronics', 'clothing', 'tools', 'food', 'books', 
 
 const Index = () => {
   useSeoMeta({
-    title: 'zooidmarket — Private Nostr Marketplace',
+    title: 'localmarket — Private Nostr Marketplace',
     description: 'A private, local-relay-only marketplace powered by Nostr.',
   });
 

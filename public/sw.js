@@ -1,7 +1,7 @@
-// zooidmarket service worker
+// localmarket service worker
 // Caches the app shell so it loads offline / on poor connections
 
-const CACHE_NAME = 'zooidmarket-v1';
+const CACHE_NAME = 'localmarket-v1';
 
 // On install, cache nothing eagerly — let the browser cache naturally
 self.addEventListener('install', (event) => {

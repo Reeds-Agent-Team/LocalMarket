@@ -25,7 +25,7 @@ export function InstallPrompt() {
     if (isStandalone) return;
 
     // Check if previously dismissed
-    if (localStorage.getItem('zooid:install-dismissed')) return;
+    if (localStorage.getItem('localmarket:install-dismissed')) return;
 
     // Android / Chrome: capture the native prompt
     const handler = (e: Event) => {
@@ -55,7 +55,7 @@ export function InstallPrompt() {
 
   const handleDismiss = () => {
     setDismissed(true);
-    localStorage.setItem('zooid:install-dismissed', '1');
+    localStorage.setItem('localmarket:install-dismissed', '1');
   };
 
   if (dismissed || (!deferredPrompt && !showIOSTip)) return null;
@@ -75,7 +75,7 @@ export function InstallPrompt() {
             </p>
           ) : (
             <p className="text-xs text-zinc-400 mt-0.5">
-              Install zooidmarket for quick access, even offline.
+              Install localmarket for quick access, even offline.
             </p>
           )}
           {!showIOSTip && (

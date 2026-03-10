@@ -23,7 +23,7 @@ interface RelayEntry {
 }
 
 export function SettingsPage() {
-  useSeoMeta({ title: 'Settings — zooidmarket' });
+  useSeoMeta({ title: 'Settings — localmarket' });
 
   const { config, updateConfig } = useAppContext();
   const { user } = useCurrentUser();
@@ -170,7 +170,7 @@ export function SettingsPage() {
 
             <div className="rounded-lg bg-zinc-800/30 border border-zinc-700/40 p-3 text-xs text-zinc-500 space-y-1">
               <p className="font-medium text-zinc-400">Privacy note</p>
-              <p>Only configure relays you control. By default, this app connects exclusively to your local zooid relay at <code className="text-zinc-300">ws://localhost:7777</code>.</p>
+              <p>Only configure relays you control. Connect by scanning the market QR code — no public relays, no leaks.</p>
             </div>
           </CardContent>
         </Card>

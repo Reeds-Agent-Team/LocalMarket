@@ -1,6 +1,6 @@
 {
-  "name": "zooidmarket",
-  "short_name": "zooidmarket",
+  "name": "localmarket",
+  "short_name": "localmarket",
   "description": "Private local marketplace powered by Nostr",
   "start_url": "/",
   "display": "standalone",
