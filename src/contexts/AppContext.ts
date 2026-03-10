@@ -14,6 +14,12 @@ export interface AppConfig {
   theme: Theme;
   /** NIP-65 relay list metadata */
   relayMetadata: RelayMetadata;
+  /**
+   * Blossom media server URL derived from the relay URL at onboarding.
+   * e.g. wss://relay.example.com → https://relay.example.com
+   * Null means no server configured — uploads will hard-fail.
+   */
+  blossomServer: string | null;
 }
 
 export interface AppContextType {

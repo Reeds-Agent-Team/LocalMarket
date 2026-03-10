@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
-import { Camera, WifiOff, CheckCircle, Loader2, QrCode, RefreshCw } from 'lucide-react';
+import { Camera, WifiOff, CheckCircle, Loader2, QrCode, RefreshCw, ServerOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useQRScanner } from '@/hooks/useQRScanner';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useToast } from '@/hooks/useToast';
+import { deriveBlossomUrl } from '@/lib/deriveBlossomUrl';
 import { cn } from '@/lib/utils';
 
 interface OnboardingRelayProps {
@@ -69,25 +70,16 @@ export function OnboardingRelay({ onComplete }: OnboardingRelayProps) {
     if (!scannedUrl) return;
     setIsConnecting(true);
 
-    // Quick connectivity check
-    let connected = false;
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const ws = new WebSocket(scannedUrl);
-        const timeout = setTimeout(() => { ws.close(); reject(new Error('timeout')); }, 4000);
-        ws.onopen = () => { clearTimeout(timeout); ws.close(); connected = true; resolve(); };
-        ws.onerror = () => { clearTimeout(timeout); reject(new Error('connection failed')); };
-      });
-    } catch {
-      // Proceed anyway — relay might need auth or be temporarily busy
-    }
+    const blossomUrl = deriveBlossomUrl(scannedUrl);
 
+    // Save relay + blossom config — both derived from the single QR scan
     updateConfig(current => ({
       ...current,
       relayMetadata: {
         relays: [{ url: scannedUrl, read: true, write: true }],
         updatedAt: Math.floor(Date.now() / 1000),
       },
+      blossomServer: blossomUrl,
     }));
 
     setIsConnecting(false);
@@ -104,11 +96,23 @@ export function OnboardingRelay({ onComplete }: OnboardingRelayProps) {
       {/* Scanned result state */}
       {scannedUrl ? (
         <div className="space-y-5">
-          <div className="rounded-xl bg-emerald-950/40 border border-emerald-800/50 p-4 flex items-start gap-3">
-            <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-emerald-300">QR code scanned!</p>
-              <p className="text-xs text-emerald-400/80 mt-0.5 break-all font-mono">{scannedUrl}</p>
+          <div className="rounded-xl bg-emerald-950/40 border border-emerald-800/50 p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-emerald-300">QR code scanned!</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Two connections will be set up:</p>
+              </div>
+            </div>
+            <div className="space-y-2 pl-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-zinc-400 w-14 shrink-0">Relay</span>
+                <span className="text-xs font-mono text-emerald-400/90 break-all">{scannedUrl}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-zinc-400 w-14 shrink-0">Media</span>
+                <span className="text-xs font-mono text-emerald-400/90 break-all">{deriveBlossomUrl(scannedUrl)}</span>
+              </div>
             </div>
           </div>
 

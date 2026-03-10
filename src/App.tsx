@@ -40,6 +40,7 @@ const defaultConfig: AppConfig = {
     relays: [], // Empty by design — user must scan QR to get a relay
     updatedAt: 0,
   },
+  blossomServer: null, // Derived from relay URL at onboarding — never falls back to public
 };
 
 export function App() {

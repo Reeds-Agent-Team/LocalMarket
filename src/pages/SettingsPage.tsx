@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSeoMeta } from '@unhead/react';
-import { Save, Loader2, Wifi, PlusCircle, Trash2, Settings, LogOut, QrCode } from 'lucide-react';
+import { Save, Loader2, Wifi, PlusCircle, Trash2, Settings, LogOut, QrCode, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,7 @@ import { useAppContext } from '@/hooks/useAppContext';
 import { useToast } from '@/hooks/useToast';
 import { EditProfileForm } from '@/components/EditProfileForm';
 import { RelayStatusBadge } from '@/components/RelayStatusBadge';
+import { deriveBlossomUrl } from '@/lib/deriveBlossomUrl';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { LoginArea } from '@/components/auth/LoginArea';
@@ -60,14 +61,19 @@ export function SettingsPage() {
   const saveRelays = async () => {
     setIsSaving(true);
     try {
+      // Derive Blossom URL from the first write relay
+      const firstWriteRelay = relays.find(r => r.write);
+      const blossomServer = firstWriteRelay ? deriveBlossomUrl(firstWriteRelay.url) : null;
+
       updateConfig(current => ({
         ...current,
         relayMetadata: {
           relays,
           updatedAt: Math.floor(Date.now() / 1000),
         },
+        blossomServer,
       }));
-      toast({ title: 'Relay settings saved!' });
+      toast({ title: 'Settings saved!' });
     } finally {
       setIsSaving(false);
     }
@@ -168,6 +174,18 @@ export function SettingsPage() {
               Save Relay Settings
             </Button>
 
+            {/* Derived Blossom server display */}
+            {config.blossomServer && (
+              <div className="rounded-lg bg-zinc-800/30 border border-zinc-700/40 p-3 flex items-start gap-2">
+                <ImageIcon className="w-3.5 h-3.5 text-zinc-500 mt-0.5 shrink-0" />
+                <div className="space-y-0.5">
+                  <p className="text-xs font-medium text-zinc-400">Media server</p>
+                  <p className="text-xs font-mono text-zinc-500 break-all">{config.blossomServer}</p>
+                  <p className="text-xs text-zinc-600">Derived from your relay. All images stay on your server.</p>
+                </div>
+              </div>
+            )}
+
             <div className="rounded-lg bg-zinc-800/30 border border-zinc-700/40 p-3 text-xs text-zinc-500 space-y-1">
               <p className="font-medium text-zinc-400">Privacy note</p>
               <p>Only configure relays you control. Connect by scanning the market QR code — no public relays, no leaks.</p>
@@ -211,6 +229,7 @@ export function SettingsPage() {
                 updateConfig(current => ({
                   ...current,
                   relayMetadata: { relays: [], updatedAt: 0 },
+                  blossomServer: null,
                 }));
                 setRelays([]);
                 toast({ title: 'Relay cleared — scan a new QR code to rejoin' });
