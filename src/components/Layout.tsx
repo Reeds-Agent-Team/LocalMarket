@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingBag, MessageSquare, Settings, PlusCircle, Store } from 'lucide-react';
+import { ShoppingBag, MessageSquare, Settings, PlusCircle, Store, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -20,6 +20,7 @@ export function Layout({ children }: LayoutProps) {
     { href: '/', label: 'Market', icon: Store },
     { href: '/messages', label: 'Messages', icon: MessageSquare },
     { href: '/settings', label: 'Settings', icon: Settings },
+    ...(user ? [{ href: '/admin', label: 'Admin', icon: ShieldAlert }] : []),
   ];
 
   return (

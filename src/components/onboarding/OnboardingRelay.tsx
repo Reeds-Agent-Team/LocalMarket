@@ -1,134 +1,151 @@
 import { useState, useCallback } from 'react';
-import { Camera, WifiOff, CheckCircle, Loader2, QrCode, RefreshCw, ServerOff } from 'lucide-react';
+import { Camera, WifiOff, CheckCircle, Loader2, QrCode, RefreshCw, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useQRScanner } from '@/hooks/useQRScanner';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useToast } from '@/hooks/useToast';
+import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { deriveBlossomUrl } from '@/lib/deriveBlossomUrl';
+import { parseInviteLink, type InviteData } from '@/lib/parseInviteLink';
 import { cn } from '@/lib/utils';
 
 interface OnboardingRelayProps {
   onComplete: () => void;
 }
 
-/** Extracts a WebSocket relay URL from QR code data.
- *  Accepts:
- *   - Raw:  wss://relay.example.com
- *   - URI:  nostr+relay://relay.example.com
- *   - URL:  https://relay.example.com  (converted to wss)
- */
-function extractRelayUrl(data: string): string | null {
-  const trimmed = data.trim();
-
-  let url: string | null = null;
-
-  // Direct wss:// or ws://
-  if (trimmed.startsWith('wss://') || trimmed.startsWith('ws://')) {
-    url = trimmed;
-  }
-  // nostr+relay:// scheme
-  else if (trimmed.startsWith('nostr+relay://')) {
-    url = 'wss://' + trimmed.slice('nostr+relay://'.length);
-  }
-  // HTTPS URL → convert to WSS
-  else if (trimmed.startsWith('https://')) {
-    url = 'wss://' + trimmed.slice('https://'.length);
-  }
-  // HTTP URL → convert to WS
-  else if (trimmed.startsWith('http://')) {
-    url = 'ws://' + trimmed.slice('http://'.length);
-  }
-
-  // Normalize: strip trailing slash so wss://host/ and wss://host are the same
-  if (url) {
-    url = url.replace(/\/+$/, '');
-  }
-
-  return url;
-}
-
 export function OnboardingRelay({ onComplete }: OnboardingRelayProps) {
   const { updateConfig } = useAppContext();
   const { toast } = useToast();
-  const [scannedUrl, setScannedUrl] = useState<string | null>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const { mutateAsync: publish } = useNostrPublish();
+
+  // Pre-fill from deep-link if the user arrived via /join?r=...&c=...
+  const pendingInviteRaw = sessionStorage.getItem('localmarket:pending-invite');
+  const pendingInvite = pendingInviteRaw ? (() => { try { return JSON.parse(pendingInviteRaw) as InviteData; } catch { return null; } })() : null;
+
+  const [invite, setInvite] = useState<InviteData | null>(pendingInvite);
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinStatus, setJoinStatus] = useState<'idle' | 'saving' | 'joining' | 'done'>('idle');
 
   const handleScan = useCallback((data: string) => {
-    const url = extractRelayUrl(data);
-    if (!url) {
+    const parsed = parseInviteLink(data);
+    if (!parsed) {
       toast({
-        title: 'Not a relay QR code',
-        description: 'That QR code doesn\'t contain a relay URL. Try again.',
+        title: 'Not a valid invite',
+        description: "That QR code doesn't contain a relay URL. Try again.",
         variant: 'destructive',
       });
-      // Restart scanner after a short pause
       setTimeout(() => scanner.start(), 1500);
       return;
     }
-    setScannedUrl(url);
+    setInvite(parsed);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scanner = useQRScanner({ onResult: handleScan });
 
   const handleConfirm = async () => {
-    if (!scannedUrl) return;
-    setIsConnecting(true);
+    if (!invite) return;
+    setIsJoining(true);
+    sessionStorage.removeItem('localmarket:pending-invite');
 
-    const blossomUrl = deriveBlossomUrl(scannedUrl);
+    const blossomUrl = deriveBlossomUrl(invite.url);
 
-    // Save relay + blossom config — both derived from the single QR scan
+    // 1. Save relay + blossom config first — this triggers the pool to
+    //    connect and authenticate before we try to publish the join request
+    setJoinStatus('saving');
     updateConfig(current => ({
       ...current,
       relayMetadata: {
-        relays: [{ url: scannedUrl, read: true, write: true }],
+        relays: [{ url: invite.url, read: true, write: true }],
         updatedAt: Math.floor(Date.now() / 1000),
       },
       blossomServer: blossomUrl,
     }));
 
-    setIsConnecting(false);
+    // 2. If there's a claim code, wait for the pool to connect + auth,
+    //    then send the kind 28934 join request
+    if (invite.claim) {
+      setJoinStatus('joining');
+      // Give the NostrProvider time to connect and complete NIP-42 auth
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      try {
+        await publish({
+          kind: 28934,
+          content: '',
+          tags: [['claim', invite.claim]],
+        });
+        console.log('[OnboardingRelay] Join request sent with claim:', invite.claim);
+      } catch (err) {
+        console.warn('[OnboardingRelay] Join request failed:', err);
+        // Don't block onboarding — the relay may still let them in
+        // if the claim is valid but our timing was off
+      }
+    }
+
+    setJoinStatus('done');
+    setIsJoining(false);
     onComplete();
   };
 
   const handleRetry = () => {
-    setScannedUrl(null);
+    setInvite(null);
     scanner.start();
   };
 
   return (
     <div className="w-full space-y-6">
-      {/* Scanned result state */}
-      {scannedUrl ? (
+      {/* Scanned / confirmed state */}
+      {invite ? (
         <div className="space-y-5">
           <div className="rounded-xl bg-emerald-950/40 border border-emerald-800/50 p-4 space-y-3">
             <div className="flex items-start gap-3">
               <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
               <div className="min-w-0">
-                <p className="text-sm font-medium text-emerald-300">QR code scanned!</p>
-                <p className="text-xs text-zinc-500 mt-0.5">Two connections will be set up:</p>
+                <p className="text-sm font-medium text-emerald-300">Invite scanned!</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Ready to join the market.</p>
               </div>
             </div>
+
             <div className="space-y-2 pl-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-zinc-400 w-14 shrink-0">Relay</span>
-                <span className="text-xs font-mono text-emerald-400/90 break-all">{scannedUrl}</span>
+              <div className="flex items-start gap-2">
+                <span className="text-xs font-medium text-zinc-400 w-14 shrink-0 mt-0.5">Relay</span>
+                <span className="text-xs font-mono text-emerald-400/90 break-all">{invite.url}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-zinc-400 w-14 shrink-0">Media</span>
-                <span className="text-xs font-mono text-emerald-400/90 break-all">{deriveBlossomUrl(scannedUrl)}</span>
+              <div className="flex items-start gap-2">
+                <span className="text-xs font-medium text-zinc-400 w-14 shrink-0 mt-0.5">Media</span>
+                <span className="text-xs font-mono text-emerald-400/90 break-all">{deriveBlossomUrl(invite.url)}</span>
               </div>
+              {invite.claim && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-zinc-400 w-14 shrink-0">Invite</span>
+                  <div className="flex items-center gap-1.5">
+                    <Key className="w-3 h-3 text-violet-400" />
+                    <span className="text-xs font-mono text-violet-400">{invite.claim}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
+          {/* Status indicator during join */}
+          {isJoining && (
+            <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/40 px-4 py-3 flex items-center gap-3">
+              <Loader2 className="w-4 h-4 text-violet-400 animate-spin shrink-0" />
+              <p className="text-sm text-zinc-400">
+                {joinStatus === 'saving' && 'Connecting to relay…'}
+                {joinStatus === 'joining' && 'Sending join request…'}
+              </p>
+            </div>
+          )}
+
           <Button
             onClick={handleConfirm}
-            disabled={isConnecting}
+            disabled={isJoining}
             className="w-full h-12 bg-violet-600 hover:bg-violet-500 text-white text-base font-semibold shadow-lg shadow-violet-900/30"
           >
-            {isConnecting ? (
-              <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Connecting…</>
+            {isJoining ? (
+              <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Joining…</>
             ) : (
-              'Connect to market →'
+              'Join the market →'
             )}
           </Button>
 
@@ -150,7 +167,6 @@ export function OnboardingRelay({ onComplete }: OnboardingRelayProps) {
               scanner.status === 'scanning' ? 'border-violet-500/60' : 'border-zinc-700'
             )}
           >
-            {/* Video element — always in DOM so ref is stable */}
             <video
               ref={scanner.videoRef}
               className={cn(
@@ -160,10 +176,8 @@ export function OnboardingRelay({ onComplete }: OnboardingRelayProps) {
               muted
               playsInline
             />
-            {/* Hidden canvas for frame analysis */}
             <canvas ref={scanner.canvasRef} className="hidden" />
 
-            {/* Idle / error state overlay */}
             {scanner.status !== 'scanning' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
                 {scanner.status === 'error' ? (
@@ -194,21 +208,17 @@ export function OnboardingRelay({ onComplete }: OnboardingRelayProps) {
               </div>
             )}
 
-            {/* Scanning corner frame overlay */}
             {scanner.status === 'scanning' && (
               <div className="absolute inset-0 pointer-events-none">
-                {/* Corner marks */}
                 <div className="absolute top-4 left-4 w-8 h-8 border-t-2 border-l-2 border-violet-400 rounded-tl-sm" />
                 <div className="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-violet-400 rounded-tr-sm" />
                 <div className="absolute bottom-4 left-4 w-8 h-8 border-b-2 border-l-2 border-violet-400 rounded-bl-sm" />
                 <div className="absolute bottom-4 right-4 w-8 h-8 border-b-2 border-r-2 border-violet-400 rounded-br-sm" />
-                {/* Scan line animation */}
                 <div className="absolute left-6 right-6 h-0.5 bg-violet-400/70 animate-scan-line" />
               </div>
             )}
           </div>
 
-          {/* Start scan button */}
           {scanner.status === 'idle' && (
             <Button
               onClick={() => scanner.start()}
@@ -221,7 +231,7 @@ export function OnboardingRelay({ onComplete }: OnboardingRelayProps) {
 
           {scanner.status === 'scanning' && (
             <p className="text-center text-sm text-zinc-400 animate-pulse">
-              Point your camera at the relay QR code…
+              Point your camera at the invite QR code…
             </p>
           )}
         </>
