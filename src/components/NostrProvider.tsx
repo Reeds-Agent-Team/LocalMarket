@@ -67,19 +67,32 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       open(url: string) {
         console.log('[NostrProvider] Opening relay:', url);
 
+        // Resettable auth gate — resets on each reconnect
         let authResolveFn: () => void;
         let authRejectFn: (e: Error) => void;
-        const authReady = new Promise<void>((resolve, reject) => {
+        let authReady = new Promise<void>((resolve, reject) => {
           authResolveFn = resolve;
           authRejectFn = reject;
         });
 
-        // If no AUTH challenge within 4s, assume open relay
-        const authTimeout = setTimeout(() => {
+        let authTimeout = setTimeout(() => {
           console.log('[NostrProvider] No AUTH challenge — assuming open relay');
           authResolveFn();
           setRelayReadyRef.current(true);
         }, 4000);
+
+        const resetAuth = () => {
+          clearTimeout(authTimeout);
+          // Create a new promise for the next auth cycle
+          authReady = new Promise<void>((resolve, reject) => {
+            authResolveFn = resolve;
+            authRejectFn = reject;
+          });
+          authTimeout = setTimeout(() => {
+            console.log('[NostrProvider] No AUTH on reconnect — assuming open');
+            authResolveFn();
+          }, 4000);
+        };
 
         const relay = new NRelay1(url, {
           auth: async (challenge: string) => {
@@ -102,7 +115,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
             console.log('[NostrProvider] AUTH signed:', event.pubkey);
 
-            // Wait 800ms for relay to process AUTH, then mark ready
+            // Wait 800ms for relay to process AUTH, then unblock
             setTimeout(() => {
               console.log('[NostrProvider] Relay ready — unblocking queries');
               authResolveFn();
@@ -111,16 +124,34 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
             return event;
           },
-          log: (entry) => console.log('[NRelay1]', entry),
+          log: (entry) => {
+            console.log('[NRelay1]', entry);
+            // Detect reconnection and reset auth gate
+            if (typeof entry === 'object' && entry !== null) {
+              const entryStr = JSON.stringify(entry);
+              if (entryStr.includes('"open"') || entryStr.includes('reconnect')) {
+                resetAuth();
+              }
+            }
+          },
         });
 
-        // Patch req to wait for auth
+        // Patch req to wait for auth before sending subscriptions
         const originalReq = relay.req.bind(relay);
         relay.req = async function* (filters, opts) {
           console.log('[NostrProvider] REQ waiting for auth...');
           await authReady;
           console.log('[NostrProvider] REQ proceeding:', JSON.stringify(filters));
           yield* originalReq(filters, opts);
+        };
+
+        // Patch event to wait for auth before publishing
+        const originalEvent = relay.event.bind(relay);
+        relay.event = async function(event, opts) {
+          console.log('[NostrProvider] EVENT waiting for auth...');
+          await authReady;
+          console.log('[NostrProvider] EVENT proceeding, kind:', event.kind);
+          return originalEvent(event, opts);
         };
 
         return relay;
