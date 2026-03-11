@@ -45,30 +45,6 @@ export function ProfileImport() {
 
     const importProfile = async () => {
       try {
-        // Step 0: Check for a pending profile from onboarding (new user flow).
-        // This is set during identity step before the relay was connected.
-        const pendingProfileRaw = localStorage.getItem('localmarket:pending-profile');
-        if (pendingProfileRaw) {
-          try {
-            const pendingMetadata = JSON.parse(pendingProfileRaw);
-            localStorage.removeItem('localmarket:pending-profile');
-            console.log('[ProfileImport] Publishing pending onboarding profile...');
-            await publish({
-              kind: 0,
-              content: JSON.stringify(pendingMetadata),
-              tags: [],
-            });
-            // Invalidate all author queries (key includes relay URL which we don't need to specify)
-            queryClient.invalidateQueries({ queryKey: ['nostr', 'author'] });
-            // Also clear the session key so useAuthor re-runs
-            sessionStorage.removeItem(`localmarket:profile-imported:${user.pubkey}`);
-            console.log('[ProfileImport] Pending profile published successfully');
-          } catch (err) {
-            console.warn('[ProfileImport] Failed to publish pending profile:', err);
-          }
-          return; // Don't run the public relay import flow for new users
-        }
-
         // Step 1: Check if the local relay already has a kind 0 for this user
         const localRelay = new NRelay1(localRelayUrl);
         let hasLocalProfile = false;

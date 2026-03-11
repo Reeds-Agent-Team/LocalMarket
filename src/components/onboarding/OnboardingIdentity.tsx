@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { generateSecretKey, nip19 } from 'nostr-tools';
-import { Loader2, Eye, EyeOff, Copy, Check, UserPlus, KeyRound, ImagePlus, X } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Copy, Check, UserPlus, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useLoginActions } from '@/hooks/useLoginActions';
-import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { useUploadFile } from '@/hooks/useUploadFile';
 import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 
@@ -57,30 +55,25 @@ export function OnboardingIdentity({ onComplete }: OnboardingIdentityProps) {
 }
 
 // ─── New User ────────────────────────────────────────────────────────────────
+// Just generates a keypair and shows the backup screen. No name here —
+// that happens in step 3 (OnboardingProfile) after the relay is connected.
 
 function NewUserForm({ onComplete }: { onComplete: () => void }) {
   const { nsec: loginWithNsec } = useLoginActions();
-  const { mutateAsync: publish } = useNostrPublish();
-  const { mutateAsync: uploadFile } = useUploadFile();
   const { toast } = useToast();
 
-  const [name, setName] = useState('');
   const [generatedNsec, setGeneratedNsec] = useState<string | null>(null);
   const [showNsec, setShowNsec] = useState(false);
   const [copied, setCopied] = useState(false);
   const [savedKey, setSavedKey] = useState(false);
-  const [pfpUrl, setPfpUrl] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [step, setStep] = useState<'name' | 'backup'>('name');
 
   const handleGenerateKey = () => {
-    if (!name.trim()) return;
     const sk = generateSecretKey();
     const nsec = nip19.nsecEncode(sk);
     setGeneratedNsec(nsec);
-    setStep('backup');
-    // Log in immediately so uploads work
+    // Mark as new user so we show the profile step after relay connects
+    localStorage.setItem('localmarket:new-user', '1');
     loginWithNsec(nsec);
   };
 
@@ -91,117 +84,46 @@ function NewUserForm({ onComplete }: { onComplete: () => void }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handlePfpUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsUploading(true);
-    try {
-      const tags = await uploadFile(file);
-      const url = tags[0]?.[1];
-      if (url) setPfpUrl(url);
-    } catch {
-      toast({ title: 'Upload failed', variant: 'destructive' });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleFinish = async () => {
+  const handleContinue = () => {
     if (!savedKey) {
       toast({ title: 'Please confirm you saved your key', variant: 'destructive' });
       return;
     }
     setIsSubmitting(true);
-    try {
-      // Store the profile in localStorage so it can be published once the relay
-      // is connected (after the QR scan step). The relay isn't available yet here.
-      const metadata: Record<string, string> = { name: name.trim() };
-      if (pfpUrl) metadata.picture = pfpUrl;
-      localStorage.setItem('localmarket:pending-profile', JSON.stringify(metadata));
-      onComplete();
-    } finally {
-      setIsSubmitting(false);
-    }
+    onComplete();
   };
 
-  if (step === 'name') {
+  // Step 1: Generate key
+  if (!generatedNsec) {
     return (
       <div className="space-y-6">
-        <div className="space-y-2">
-          <Label className="text-zinc-300 text-sm">Your name</Label>
-          <Input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && name.trim() && handleGenerateKey()}
-            placeholder="e.g. Sarah, Bob, The Bread Lady…"
-            className="bg-zinc-800/60 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-violet-500/50 h-12 text-base"
-            autoFocus
-          />
-          <p className="text-xs text-zinc-500">
-            Just a name your group will recognise. No email, no account — just a name and a key.
+        <div className="rounded-xl bg-zinc-800/40 border border-zinc-700/50 p-4 space-y-2">
+          <p className="text-sm text-zinc-300 font-medium">No account needed</p>
+          <p className="text-xs text-zinc-500 leading-relaxed">
+            We'll generate a cryptographic key pair for you. It's your identity — no email, no password, no account.
           </p>
         </div>
         <Button
           onClick={handleGenerateKey}
-          disabled={!name.trim()}
-          className="w-full h-12 bg-violet-600 hover:bg-violet-500 text-white text-base font-semibold shadow-lg shadow-violet-900/30 disabled:opacity-40"
+          className="w-full h-12 bg-violet-600 hover:bg-violet-500 text-white text-base font-semibold shadow-lg shadow-violet-900/30"
         >
           <UserPlus className="w-5 h-5 mr-2" />
-          Create my account
+          Generate my key
         </Button>
       </div>
     );
   }
 
+  // Step 2: Back up the key
   return (
     <div className="space-y-6">
-      {/* Profile picture */}
-      <div className="flex items-center gap-4">
-        <div className="relative w-20 h-20 rounded-2xl bg-zinc-800 border-2 border-zinc-700 overflow-hidden flex items-center justify-center shrink-0">
-          {pfpUrl ? (
-            <>
-              <img src={pfpUrl} alt="" className="w-full h-full object-cover" />
-              <button
-                onClick={() => setPfpUrl(null)}
-                className="absolute top-1 right-1 w-5 h-5 bg-zinc-900/80 rounded-full flex items-center justify-center text-zinc-300 hover:text-white"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </>
-          ) : (
-            <span className="text-3xl font-bold text-zinc-600">
-              {name.trim()[0]?.toUpperCase() ?? '?'}
-            </span>
-          )}
-        </div>
-        <div className="flex-1 space-y-1">
-          <p className="font-semibold text-zinc-100">{name}</p>
-          <label className="inline-flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 cursor-pointer transition-colors">
-            {isUploading ? (
-              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…</>
-            ) : (
-              <><ImagePlus className="w-3.5 h-3.5" /> {pfpUrl ? 'Change photo' : 'Add a photo (optional)'}</>
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handlePfpUpload}
-              disabled={isUploading}
-            />
-          </label>
-        </div>
-      </div>
-
-      {/* Key backup */}
       <div className="rounded-xl bg-amber-950/40 border border-amber-800/50 p-4 space-y-3">
         <div className="flex items-start gap-2">
           <KeyRound className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
           <div>
             <p className="text-sm font-medium text-amber-300">Save your secret key</p>
             <p className="text-xs text-amber-400/80 mt-0.5">
-              This is your password. Lose it and you lose access to your listings. There's no recovery.
+              This is your password. Lose it and you lose your account. There's no recovery.
             </p>
           </div>
         </div>
@@ -229,7 +151,6 @@ function NewUserForm({ onComplete }: { onComplete: () => void }) {
           </div>
         </div>
 
-        {/* Confirm saved */}
         <label className="flex items-center gap-3 cursor-pointer group">
           <div
             onClick={() => setSavedKey(v => !v)}
@@ -249,7 +170,7 @@ function NewUserForm({ onComplete }: { onComplete: () => void }) {
       </div>
 
       <Button
-        onClick={handleFinish}
+        onClick={handleContinue}
         disabled={!savedKey || isSubmitting}
         className="w-full h-12 bg-violet-600 hover:bg-violet-500 text-white text-base font-semibold shadow-lg shadow-violet-900/30 disabled:opacity-40"
       >
@@ -278,6 +199,8 @@ function ReturningUserForm({ onComplete }: { onComplete: () => void }) {
     setIsLoading(true);
     try {
       loginWithNsec(trimmed);
+      // Returning users do NOT get the profile setup step
+      localStorage.removeItem('localmarket:new-user');
       onComplete();
     } catch {
       toast({ title: 'Invalid key', description: 'Could not parse that secret key.', variant: 'destructive' });

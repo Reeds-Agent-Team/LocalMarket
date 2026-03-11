@@ -8,75 +8,10 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { deriveBlossomUrl } from '@/lib/deriveBlossomUrl';
 import { parseInviteLink, type InviteData } from '@/lib/parseInviteLink';
 import { sendJoinRequest } from '@/lib/sendJoinRequest';
-import { NRelay1 } from '@nostrify/nostrify';
 import { cn } from '@/lib/utils';
 
 interface OnboardingRelayProps {
   onComplete: () => void;
-}
-
-/**
- * Publishes a kind 0 profile event directly to the relay using a fresh
- * NRelay1 connection with NIP-42 auth — same pattern as sendJoinRequest.
- */
-async function publishProfileDirect(
-  relayUrl: string,
-  metadata: Record<string, string>,
-  user: { signer: { signEvent: (e: object) => Promise<{ kind: number; content: string; tags: string[][]; created_at: number; pubkey: string; id: string; sig: string }> } },
-): Promise<void> {
-  return new Promise((resolve) => {
-    let resolved = false;
-    const done = () => { if (!resolved) { resolved = true; resolve(); } };
-    const giveUpTimer = setTimeout(done, 12000);
-
-    const relay = new NRelay1(relayUrl, {
-      auth: async (challenge: string) => {
-        const authEvent = await user.signer.signEvent({
-          kind: 22242,
-          content: '',
-          tags: [['relay', relayUrl], ['challenge', challenge]],
-          created_at: Math.floor(Date.now() / 1000),
-        });
-
-        // Give relay 800ms to process auth then publish profile
-        setTimeout(async () => {
-          try {
-            const profileEvent = await user.signer.signEvent({
-              kind: 0,
-              content: JSON.stringify(metadata),
-              tags: [],
-              created_at: Math.floor(Date.now() / 1000),
-            });
-            await relay.event(profileEvent, { signal: AbortSignal.timeout(5000) });
-            clearTimeout(giveUpTimer);
-            done();
-          } catch (err) {
-            console.warn('[publishProfileDirect] event rejected:', err);
-            clearTimeout(giveUpTimer);
-            done();
-          }
-        }, 800);
-
-        return authEvent;
-      },
-    });
-
-    // Fallback: if no AUTH challenge in 5s, try publishing directly
-    setTimeout(async () => {
-      if (resolved) return;
-      try {
-        const profileEvent = await user.signer.signEvent({
-          kind: 0,
-          content: JSON.stringify(metadata),
-          tags: [],
-          created_at: Math.floor(Date.now() / 1000),
-        });
-        await relay.event(profileEvent, { signal: AbortSignal.timeout(5000) });
-      } catch { /* ignore */ }
-      clearTimeout(giveUpTimer);
-      done();
-    }, 5000);
-  });
 }
 
 export function OnboardingRelay({ onComplete }: OnboardingRelayProps) {
@@ -138,21 +73,6 @@ export function OnboardingRelay({ onComplete }: OnboardingRelayProps) {
           console.log('[OnboardingRelay] Join request sent successfully');
         } catch (err) {
           console.warn('[OnboardingRelay] Join request failed:', err);
-        }
-      }
-
-      // Publish pending profile (set during identity step) directly to relay
-      const pendingProfileRaw = localStorage.getItem('localmarket:pending-profile');
-      if (pendingProfileRaw) {
-        try {
-          const pendingMetadata = JSON.parse(pendingProfileRaw);
-          localStorage.removeItem('localmarket:pending-profile');
-
-          await publishProfileDirect(invite.url, pendingMetadata, user);
-          console.log('[OnboardingRelay] Profile published successfully');
-        } catch (err) {
-          console.warn('[OnboardingRelay] Profile publish failed:', err);
-          // Non-critical — user can edit profile in Settings
         }
       }
     }

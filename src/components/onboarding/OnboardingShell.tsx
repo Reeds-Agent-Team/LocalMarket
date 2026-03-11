@@ -1,16 +1,37 @@
 import { ShoppingBag } from 'lucide-react';
 import { OnboardingIdentity } from './OnboardingIdentity';
 import { OnboardingRelay } from './OnboardingRelay';
+import { OnboardingProfile } from './OnboardingProfile';
 import { useOnboardingState } from '@/hooks/useOnboardingState';
 import { cn } from '@/lib/utils';
 
 export function OnboardingShell() {
   const step = useOnboardingState();
 
-  const isIdentityStep = step === 'identity';
-  const isRelayStep = step === 'relay';
+  const stepNumber = step === 'identity' ? 1 : step === 'relay' ? 2 : 3;
+  const isNewUser = step === 'profile' || localStorage.getItem('localmarket:new-user') === '1';
 
-  const stepNumber = isIdentityStep ? 1 : 2;
+  // Step indicators — 2 for returning users, 3 for new users
+  const steps = isNewUser
+    ? ['Identity', 'Join market', 'Profile']
+    : ['Identity', 'Join market'];
+
+  const titles: Record<string, { heading: string; sub: string }> = {
+    identity: {
+      heading: 'Who are you?',
+      sub: 'New here? We\'ll generate a key for you. Already have one? Paste it in.',
+    },
+    relay: {
+      heading: 'Scan to join',
+      sub: 'Ask the market host for their QR code, then scan it to connect.',
+    },
+    profile: {
+      heading: 'Set up your profile',
+      sub: 'Let others know who you are. You can always update this later.',
+    },
+  };
+
+  const { heading, sub } = titles[step] ?? titles.identity;
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-start px-5 py-10 safe-area-inset">
@@ -29,40 +50,35 @@ export function OnboardingShell() {
 
       {/* Step indicators */}
       <div className="flex items-center gap-2 mb-8">
-        <StepDot number={1} active={stepNumber >= 1} done={stepNumber > 1} label="Identity" />
-        <div className={cn(
-          'h-px w-8 transition-colors duration-500',
-          stepNumber > 1 ? 'bg-violet-500' : 'bg-zinc-700'
-        )} />
-        <StepDot number={2} active={stepNumber >= 2} done={false} label="Join market" />
+        {steps.map((label, i) => (
+          <div key={label} className="flex items-center gap-2">
+            {i > 0 && (
+              <div className={cn(
+                'h-px w-8 transition-colors duration-500',
+                stepNumber > i + 1 ? 'bg-violet-500' : stepNumber === i + 1 ? 'bg-violet-500' : 'bg-zinc-700'
+              )} />
+            )}
+            <StepDot
+              number={i + 1}
+              active={stepNumber >= i + 1}
+              done={stepNumber > i + 1}
+              label={label}
+            />
+          </div>
+        ))}
       </div>
 
       {/* Card */}
       <div className="w-full max-w-sm">
         <div className="rounded-2xl bg-zinc-900/80 border border-zinc-800/60 p-6 shadow-xl">
-          {isIdentityStep && (
-            <>
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold text-zinc-100">Who are you?</h2>
-                <p className="text-sm text-zinc-400 mt-1">
-                  Set up your identity. No email, no passwords — just a name and a cryptographic key.
-                </p>
-              </div>
-              <OnboardingIdentity onComplete={() => {}} />
-            </>
-          )}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-zinc-100">{heading}</h2>
+            <p className="text-sm text-zinc-400 mt-1">{sub}</p>
+          </div>
 
-          {isRelayStep && (
-            <>
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold text-zinc-100">Scan to join</h2>
-                <p className="text-sm text-zinc-400 mt-1">
-                  Ask the market host for their QR code, then scan it to connect.
-                </p>
-              </div>
-              <OnboardingRelay onComplete={() => {}} />
-            </>
-          )}
+          {step === 'identity' && <OnboardingIdentity onComplete={() => {}} />}
+          {step === 'relay' && <OnboardingRelay onComplete={() => {}} />}
+          {step === 'profile' && <OnboardingProfile onComplete={() => {}} />}
         </div>
       </div>
     </div>
