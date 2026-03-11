@@ -4,8 +4,8 @@ import { ShoppingBag, MessageSquare, Settings, PlusCircle, Store, ShieldAlert } 
 import { Button } from '@/components/ui/button';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { genUserName } from '@/lib/genUserName';
+import { AuthenticatedAvatar } from '@/components/AuthenticatedAvatar';
 import { cn } from '@/lib/utils';
 
 interface LayoutProps {
@@ -68,12 +68,11 @@ export function Layout({ children }: LayoutProps) {
                   </Link>
                 </Button>
                 <Link to={`/profile/${user.pubkey}`} className="shrink-0">
-                  <Avatar className="w-8 h-8 ring-2 ring-zinc-700 hover:ring-violet-500 transition-all">
-                    <AvatarImage src={metadata?.picture} />
-                    <AvatarFallback className="bg-zinc-800 text-xs text-zinc-300">
-                      {genUserName(user.pubkey).slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <AuthenticatedAvatar
+                    src={metadata?.picture}
+                    className="w-8 h-8 ring-2 ring-zinc-700 hover:ring-violet-500 transition-all"
+                    fallback={<span className="text-xs text-zinc-300">{genUserName(user.pubkey).slice(0, 2).toUpperCase()}</span>}
+                  />
                 </Link>
               </>
             ) : (

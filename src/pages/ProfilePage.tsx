@@ -3,7 +3,7 @@ import { useSeoMeta } from '@unhead/react';
 import { nip19 } from 'nostr-tools';
 import { MessageSquare, Globe, AtSign, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AuthenticatedAvatar } from '@/components/AuthenticatedAvatar';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
@@ -68,12 +68,11 @@ export function ProfilePage() {
                 <img src={authorMeta.banner} alt="" className="w-full h-full object-cover" />
               </div>
             ) : null}
-            <Avatar className="w-20 h-20 ring-4 ring-zinc-900 border-2 border-zinc-700">
-              <AvatarImage src={authorMeta?.picture} />
-              <AvatarFallback className="bg-zinc-800 text-xl">
-                <User className="w-10 h-10 text-zinc-500" />
-              </AvatarFallback>
-            </Avatar>
+            <AuthenticatedAvatar
+              src={authorMeta?.picture}
+              className="w-20 h-20 ring-4 ring-zinc-900 border-2 border-zinc-700"
+              fallback={<User className="w-10 h-10 text-zinc-500" />}
+            />
           </div>
 
           <div className="flex-1 min-w-0">

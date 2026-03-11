@@ -9,6 +9,8 @@ import { parseListing } from '@/hooks/useListings';
 import { genUserName } from '@/lib/genUserName';
 import { cn } from '@/lib/utils';
 import { formatSats } from '@/lib/formatSats';
+import { AuthenticatedImage } from '@/components/AuthenticatedImage';
+import { AuthenticatedAvatar } from '@/components/AuthenticatedAvatar';
 
 interface ListingCardProps {
   event: NostrEvent;
@@ -43,7 +45,7 @@ export function ListingCard({ event, className }: ListingCardProps) {
       {/* Image */}
       <div className="relative aspect-[4/3] bg-zinc-800/50 overflow-hidden">
         {listing.image?.[0] ? (
-          <img
+          <AuthenticatedImage
             src={listing.image[0]}
             alt={listing.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -97,12 +99,11 @@ export function ListingCard({ event, className }: ListingCardProps) {
         {/* Footer */}
         <div className="flex items-center justify-between pt-1 border-t border-zinc-800/60">
           <div className="flex items-center gap-2">
-            <Avatar className="w-5 h-5">
-              <AvatarImage src={authorMeta?.picture} />
-              <AvatarFallback className="bg-zinc-800 text-xs">
-                <User className="w-3 h-3 text-zinc-500" />
-              </AvatarFallback>
-            </Avatar>
+            <AuthenticatedAvatar
+              src={authorMeta?.picture}
+              className="w-5 h-5"
+              fallback={<User className="w-3 h-3 text-zinc-500" />}
+            />
             <span className="text-xs text-zinc-500 truncate max-w-[100px]">{displayName}</span>
           </div>
           {listing.location && (

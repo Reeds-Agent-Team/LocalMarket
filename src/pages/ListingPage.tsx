@@ -6,7 +6,7 @@ import { ArrowLeft, MapPin, Tag, MessageSquare, Loader2, Share2, Trash2, Edit, C
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AuthenticatedAvatar } from '@/components/AuthenticatedAvatar';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Layout } from '@/components/Layout';
@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/useToast';
 import { genUserName } from '@/lib/genUserName';
 import { formatSats } from '@/lib/formatSats';
 import { NoteContent } from '@/components/NoteContent';
+import { AuthenticatedImage } from '@/components/AuthenticatedImage';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -142,7 +143,7 @@ export function ListingPage() {
               <div className="relative aspect-square bg-zinc-800/50 rounded-xl overflow-hidden">
                 {listing.image?.length ? (
                   <>
-                    <img
+                    <AuthenticatedImage
                       src={listing.image[imageIndex]}
                       alt={listing.title}
                       className="w-full h-full object-cover"
@@ -190,7 +191,7 @@ export function ListingPage() {
                         i === imageIndex ? 'border-violet-500' : 'border-zinc-700 hover:border-zinc-500'
                       )}
                     >
-                      <img src={img} alt="" className="w-full h-full object-cover" />
+                      <AuthenticatedImage src={img} alt="" className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>
@@ -247,12 +248,11 @@ export function ListingPage() {
               {/* Seller */}
               <div className="flex items-center gap-3">
                 <Link to={`/profile/${pubkey}`}>
-                  <Avatar className="w-10 h-10 ring-2 ring-zinc-700 hover:ring-violet-500 transition-all">
-                    <AvatarImage src={authorMeta?.picture} />
-                    <AvatarFallback className="bg-zinc-800 text-sm">
-                      <User className="w-5 h-5 text-zinc-500" />
-                    </AvatarFallback>
-                  </Avatar>
+                  <AuthenticatedAvatar
+                    src={authorMeta?.picture}
+                    className="w-10 h-10 ring-2 ring-zinc-700 hover:ring-violet-500 transition-all"
+                    fallback={<User className="w-5 h-5 text-zinc-500" />}
+                  />
                 </Link>
                 <div>
                   <Link to={`/profile/${pubkey}`} className="font-medium text-zinc-200 hover:text-violet-300 transition-colors">
