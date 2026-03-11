@@ -92,13 +92,13 @@ export function AdminPage() {
   const generateQR = async (url: string) => {
     try {
       const dataUrl = await QRCode.toDataURL(url, {
-        width: 400,
-        margin: 2,
+        width: 512,
+        margin: 3,
         color: {
-          dark: '#ffffff',
-          light: '#18181b', // zinc-900
+          dark: '#000000',  // black on white — maximum contrast for scanning
+          light: '#ffffff',
         },
-        errorCorrectionLevel: 'M',
+        errorCorrectionLevel: 'L', // lower correction = less dense = easier to scan
       });
       setQrDataUrl(dataUrl);
     } catch (err) {
@@ -187,9 +187,9 @@ export function AdminPage() {
                   <div className="space-y-4">
                     <Separator className="bg-zinc-800" />
 
-                    {/* QR code */}
+                    {/* QR code — white background for maximum scannability */}
                     <div className="flex justify-center">
-                      <div className="rounded-xl overflow-hidden border-2 border-zinc-700 shadow-xl">
+                      <div className="rounded-xl overflow-hidden bg-white p-3 shadow-xl">
                         <img
                           src={qrDataUrl}
                           alt="Invite QR code"
