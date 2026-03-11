@@ -53,14 +53,13 @@ export function AdminPage() {
 
     try {
       // Request a kind 28935 invite event from the relay.
-      // Zooid generates one per pubkey (or reuses the existing one).
+      // Zooid generates one on the fly for any authenticated user with can_invite = true.
+      // No authors or #p filter needed — just query by kind while authenticated.
       const events = await nostr.query(
-        [{ kinds: [RELAY_INVITE_KIND], authors: [relayUrl], limit: 1 }],
+        [{ kinds: [RELAY_INVITE_KIND], limit: 1 }],
         { signal: AbortSignal.timeout(8000) }
       );
 
-      // Zooid generates the invite event signed by the relay's own key.
-      // The claim tag contains the invite code.
       const event = events[0];
       if (event) {
         const claimTag = event.tags.find(([n]) => n === 'claim');
@@ -74,8 +73,8 @@ export function AdminPage() {
       }
 
       toast({
-        title: 'No invite found',
-        description: 'The relay has not generated an invite yet. Make sure can_invite is enabled in your zooid config.',
+        title: 'No invite received',
+        description: 'Make sure can_invite = true is set in your zooid config for your role, then touch the config file to reload.',
         variant: 'destructive',
       });
     } catch (err) {
