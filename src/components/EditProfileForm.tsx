@@ -108,7 +108,7 @@ export const EditProfileForm: React.FC = () => {
 
       // Invalidate queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ['logins'] });
-      queryClient.invalidateQueries({ queryKey: ['nostr', 'author', user.pubkey] });
+      queryClient.invalidateQueries({ queryKey: ['nostr', 'author'] });
 
       toast({
         title: 'Success',

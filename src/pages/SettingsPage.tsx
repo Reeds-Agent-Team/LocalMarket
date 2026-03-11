@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSeoMeta } from '@unhead/react';
-import { Save, Loader2, Wifi, PlusCircle, Trash2, Settings, LogOut, QrCode, ImageIcon } from 'lucide-react';
+import { Save, Loader2, Wifi, PlusCircle, Trash2, Settings, LogOut, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -218,10 +218,10 @@ export function SettingsPage() {
           <CardHeader>
             <CardTitle className="text-zinc-300 text-base">Leave this market</CardTitle>
             <CardDescription className="text-zinc-500">
-              Clears your relay connection. You'll need to scan a new QR code to re-join.
+              Signs you out and clears your relay connection. You'll need to scan a new QR code to re-join.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent>
             <Button
               variant="outline"
               className="w-full border-red-900/50 text-red-400 hover:bg-red-900/20 hover:text-red-300"
@@ -232,22 +232,13 @@ export function SettingsPage() {
                   blossomServer: null,
                 }));
                 setRelays([]);
-                toast({ title: 'Relay cleared — scan a new QR code to rejoin' });
+                logout();
+                toast({ title: 'Signed out — scan a QR code to rejoin' });
               }}
             >
-              <QrCode className="w-4 h-4 mr-2" />
-              Clear relay &amp; re-scan
+              <LogOut className="w-4 h-4 mr-2" />
+              Leave market &amp; sign out
             </Button>
-            {user && (
-              <Button
-                variant="outline"
-                className="w-full border-red-900/50 text-red-400 hover:bg-red-900/20 hover:text-red-300"
-                onClick={() => logout()}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign out
-              </Button>
-            )}
           </CardContent>
         </Card>
 

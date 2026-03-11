@@ -58,7 +58,10 @@ export function ProfileImport() {
               content: JSON.stringify(pendingMetadata),
               tags: [],
             });
+            // Invalidate all author queries (key includes relay URL which we don't need to specify)
             queryClient.invalidateQueries({ queryKey: ['nostr', 'author'] });
+            // Also clear the session key so useAuthor re-runs
+            sessionStorage.removeItem(`localmarket:profile-imported:${user.pubkey}`);
             console.log('[ProfileImport] Pending profile published successfully');
           } catch (err) {
             console.warn('[ProfileImport] Failed to publish pending profile:', err);
