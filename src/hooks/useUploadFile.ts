@@ -3,6 +3,7 @@ import { BlossomUploader } from '@nostrify/nostrify/uploaders';
 
 import { useCurrentUser } from "./useCurrentUser";
 import { useAppContext } from "./useAppContext";
+import { compressImage } from "@/lib/compressImage";
 
 export function useUploadFile() {
   const { user } = useCurrentUser();
@@ -20,6 +21,9 @@ export function useUploadFile() {
         );
       }
 
+      // Compress before upload — phone photos can be 8MB+, compress to ~300KB
+      const compressed = await compressImage(file);
+
       // Ensure trailing slash for Blossom server URL
       const serverUrl = config.blossomServer.endsWith('/')
         ? config.blossomServer
@@ -30,7 +34,7 @@ export function useUploadFile() {
         signer: user.signer,
       });
 
-      const tags = await uploader.upload(file);
+      const tags = await uploader.upload(compressed);
       return tags;
     },
   });
