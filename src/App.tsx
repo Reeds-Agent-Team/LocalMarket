@@ -15,6 +15,7 @@ import { NWCProvider } from '@/contexts/NWCContext';
 import { AppConfig } from '@/contexts/AppContext';
 import { OnboardingGate } from '@/components/OnboardingGate';
 import { InstallPrompt } from '@/components/InstallPrompt';
+import { ProfileImport } from '@/components/ProfileImport';
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -51,6 +52,7 @@ export function App() {
           <NostrLoginProvider storageKey='localmarket:login'>
             <NostrProvider>
               <NostrSync />
+              <ProfileImport />
               <NWCProvider>
                 <TooltipProvider>
                   <Toaster />

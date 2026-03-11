@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { nip19 } from 'nostr-tools';
 
-import { Upload, X, PlusCircle, Loader2, ArrowLeft, ImagePlus } from 'lucide-react';
+import { X, PlusCircle, Loader2, ArrowLeft, ImagePlus, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -236,13 +236,34 @@ export function CreateListingPage() {
                     </div>
                   ))}
 
+                  {/* Take photo (camera) */}
+                  <label className="w-24 h-24 rounded-lg border-2 border-dashed border-zinc-700 hover:border-violet-500/50 flex flex-col items-center justify-center cursor-pointer transition-colors group">
+                    {isUploading ? (
+                      <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />
+                    ) : (
+                      <>
+                        <Camera className="w-6 h-6 text-zinc-500 group-hover:text-violet-400 transition-colors" />
+                        <span className="text-xs text-zinc-600 mt-1">Camera</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                      disabled={isUploading}
+                    />
+                  </label>
+
+                  {/* Choose from library */}
                   <label className="w-24 h-24 rounded-lg border-2 border-dashed border-zinc-700 hover:border-violet-500/50 flex flex-col items-center justify-center cursor-pointer transition-colors group">
                     {isUploading ? (
                       <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />
                     ) : (
                       <>
                         <ImagePlus className="w-6 h-6 text-zinc-500 group-hover:text-violet-400 transition-colors" />
-                        <span className="text-xs text-zinc-600 mt-1">Add photo</span>
+                        <span className="text-xs text-zinc-600 mt-1">Library</span>
                       </>
                     )}
                     <input

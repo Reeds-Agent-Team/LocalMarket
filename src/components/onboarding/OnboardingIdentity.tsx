@@ -192,6 +192,7 @@ function NewUserForm({ onComplete }: { onComplete: () => void }) {
             <input
               type="file"
               accept="image/*"
+              capture="environment"
               className="hidden"
               onChange={handlePfpUpload}
               disabled={isUploading}
