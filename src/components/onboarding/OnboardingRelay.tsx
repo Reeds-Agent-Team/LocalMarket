@@ -20,27 +20,31 @@ interface OnboardingRelayProps {
 function extractRelayUrl(data: string): string | null {
   const trimmed = data.trim();
 
+  let url: string | null = null;
+
   // Direct wss:// or ws://
   if (trimmed.startsWith('wss://') || trimmed.startsWith('ws://')) {
-    return trimmed;
+    url = trimmed;
   }
-
   // nostr+relay:// scheme
-  if (trimmed.startsWith('nostr+relay://')) {
-    return 'wss://' + trimmed.slice('nostr+relay://'.length);
+  else if (trimmed.startsWith('nostr+relay://')) {
+    url = 'wss://' + trimmed.slice('nostr+relay://'.length);
   }
-
   // HTTPS URL → convert to WSS
-  if (trimmed.startsWith('https://')) {
-    return 'wss://' + trimmed.slice('https://'.length);
+  else if (trimmed.startsWith('https://')) {
+    url = 'wss://' + trimmed.slice('https://'.length);
+  }
+  // HTTP URL → convert to WS
+  else if (trimmed.startsWith('http://')) {
+    url = 'ws://' + trimmed.slice('http://'.length);
   }
 
-  // HTTP URL → convert to WS (unusual but handle it)
-  if (trimmed.startsWith('http://')) {
-    return 'ws://' + trimmed.slice('http://'.length);
+  // Normalize: strip trailing slash so wss://host/ and wss://host are the same
+  if (url) {
+    url = url.replace(/\/+$/, '');
   }
 
-  return null;
+  return url;
 }
 
 export function OnboardingRelay({ onComplete }: OnboardingRelayProps) {

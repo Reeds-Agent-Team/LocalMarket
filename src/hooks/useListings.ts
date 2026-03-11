@@ -1,6 +1,7 @@
 import { NostrEvent } from '@nostrify/nostrify';
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
+import { useAppContext } from '@/hooks/useAppContext';
 
 export interface ListingTag {
   title?: string;
@@ -52,10 +53,16 @@ interface UseListingsOptions {
 
 export function useListings(options: UseListingsOptions = {}) {
   const { nostr } = useNostr();
+  const { config } = useAppContext();
   const { categories, authors, limit = 50 } = options;
 
+  // Include relay URL in query key so queries re-run when relay changes
+  const relayUrl = config.relayMetadata.relays[0]?.url ?? null;
+  const hasRelay = Boolean(relayUrl);
+
   return useQuery({
-    queryKey: ['nostr', 'listings', { categories, authors, limit }],
+    queryKey: ['nostr', 'listings', relayUrl, { categories, authors, limit }],
+    enabled: hasRelay,
     queryFn: async ({ signal }) => {
       const filter: Record<string, unknown> = {
         kinds: [30402],
@@ -70,28 +77,36 @@ export function useListings(options: UseListingsOptions = {}) {
         filter['#t'] = categories;
       }
 
+      console.log('[useListings] Querying relay:', relayUrl, 'filter:', JSON.stringify(filter));
+
       const events = await nostr.query(
         [filter as Parameters<typeof nostr.query>[0][0]],
-        { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
+        { signal: AbortSignal.any([signal, AbortSignal.timeout(10000)]) }
       );
 
+      console.log('[useListings] Got', events.length, 'events');
       return events.filter(validateListing);
     },
     staleTime: 30000,
+    retry: 2,
   });
 }
 
 export function useListing(pubkey: string | undefined, identifier: string | undefined) {
   const { nostr } = useNostr();
+  const { config } = useAppContext();
+
+  const relayUrl = config.relayMetadata.relays[0]?.url ?? null;
+  const hasRelay = Boolean(relayUrl);
 
   return useQuery({
-    queryKey: ['nostr', 'listing', pubkey, identifier],
+    queryKey: ['nostr', 'listing', relayUrl, pubkey, identifier],
     queryFn: async ({ signal }) => {
       if (!pubkey || !identifier) return null;
 
       const events = await nostr.query(
         [{ kinds: [30402], authors: [pubkey], '#d': [identifier], limit: 1 }],
-        { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
+        { signal: AbortSignal.any([signal, AbortSignal.timeout(10000)]) }
       );
 
       const event = events[0];
@@ -99,7 +114,8 @@ export function useListing(pubkey: string | undefined, identifier: string | unde
 
       return event;
     },
-    enabled: Boolean(pubkey && identifier),
+    enabled: hasRelay && Boolean(pubkey && identifier),
     staleTime: 30000,
+    retry: 2,
   });
 }
