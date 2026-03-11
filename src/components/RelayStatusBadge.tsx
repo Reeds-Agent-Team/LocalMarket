@@ -18,21 +18,56 @@ export function RelayStatusBadge({ relayUrl }: RelayStatusBadgeProps) {
 
     setStatus('connecting');
     let ws: WebSocket | null = null;
-    let timeout: ReturnType<typeof setTimeout>;
+    let everOpened = false;
+
+    const timeout = setTimeout(() => {
+      setStatus('disconnected');
+      ws?.close();
+    }, 5000);
 
     try {
       ws = new WebSocket(relayUrl);
 
-      ws.onopen = () => setStatus('connected');
-      ws.onerror = () => setStatus('disconnected');
-      ws.onclose = () => setStatus('disconnected');
+      ws.onopen = () => {
+        everOpened = true;
+        clearTimeout(timeout);
+        setStatus('connected');
+        // Close the probe connection after confirming it opened
+        setTimeout(() => ws?.close(), 500);
+      };
 
-      // Timeout if no connection in 3s
-      timeout = setTimeout(() => {
-        if (status === 'connecting') setStatus('disconnected');
-        ws?.close();
-      }, 3000);
+      ws.onmessage = (e) => {
+        // If we receive ANY message (including AUTH challenge), the relay is reachable
+        try {
+          const msg = JSON.parse(e.data);
+          if (Array.isArray(msg) && msg[0] === 'AUTH') {
+            // Private relay — it's up and requiring auth, that's healthy
+            everOpened = true;
+            clearTimeout(timeout);
+            setStatus('connected');
+            ws?.close();
+          }
+        } catch {
+          // ignore parse errors
+        }
+      };
+
+      ws.onerror = () => {
+        if (!everOpened) {
+          clearTimeout(timeout);
+          setStatus('disconnected');
+        }
+      };
+
+      ws.onclose = () => {
+        // Only mark disconnected if we never successfully opened or got an AUTH
+        if (!everOpened) {
+          clearTimeout(timeout);
+          setStatus('disconnected');
+        }
+      };
     } catch {
+      clearTimeout(timeout);
       setStatus('disconnected');
     }
 
@@ -40,7 +75,6 @@ export function RelayStatusBadge({ relayUrl }: RelayStatusBadgeProps) {
       clearTimeout(timeout);
       ws?.close();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [relayUrl]);
 
   const configs: Record<Status, { label: string; icon: React.ReactNode; className: string }> = {
