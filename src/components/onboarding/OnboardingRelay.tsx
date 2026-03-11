@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { useQRScanner } from '@/hooks/useQRScanner';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useToast } from '@/hooks/useToast';
-import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { deriveBlossomUrl } from '@/lib/deriveBlossomUrl';
 import { parseInviteLink, type InviteData } from '@/lib/parseInviteLink';
+import { sendJoinRequest } from '@/lib/sendJoinRequest';
 import { cn } from '@/lib/utils';
 
 interface OnboardingRelayProps {
@@ -16,7 +17,7 @@ interface OnboardingRelayProps {
 export function OnboardingRelay({ onComplete }: OnboardingRelayProps) {
   const { updateConfig } = useAppContext();
   const { toast } = useToast();
-  const { mutateAsync: publish } = useNostrPublish();
+  const { user } = useCurrentUser();
 
   // Pre-fill from deep-link if the user arrived via /join?r=...&c=...
   const pendingInviteRaw = sessionStorage.getItem('localmarket:pending-invite');
@@ -61,23 +62,17 @@ export function OnboardingRelay({ onComplete }: OnboardingRelayProps) {
       blossomServer: blossomUrl,
     }));
 
-    // 2. If there's a claim code, wait for the pool to connect + auth,
-    //    then send the kind 28934 join request
-    if (invite.claim) {
+    // 2. If there's a claim code, send the kind 28934 join request using
+    //    a direct NRelay1 connection — bypasses the pool entirely so we
+    //    don't depend on pool reconnect timing
+    if (invite.claim && user) {
       setJoinStatus('joining');
-      // Give the NostrProvider time to connect and complete NIP-42 auth
-      await new Promise(resolve => setTimeout(resolve, 3000));
       try {
-        await publish({
-          kind: 28934,
-          content: '',
-          tags: [['claim', invite.claim]],
-        });
-        console.log('[OnboardingRelay] Join request sent with claim:', invite.claim);
+        await sendJoinRequest(invite.url, invite.claim, user);
+        console.log('[OnboardingRelay] Join request sent successfully');
       } catch (err) {
         console.warn('[OnboardingRelay] Join request failed:', err);
-        // Don't block onboarding — the relay may still let them in
-        // if the claim is valid but our timing was off
+        // Don't block onboarding completion
       }
     }
 
