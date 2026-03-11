@@ -15,10 +15,11 @@ import {
 
 interface DMMessagingInterfaceProps {
   className?: string;
+  initialPubkey?: string;
 }
 
-export const DMMessagingInterface = ({ className }: DMMessagingInterfaceProps) => {
-  const [selectedPubkey, setSelectedPubkey] = useState<string | null>(null);
+export const DMMessagingInterface = ({ className, initialPubkey }: DMMessagingInterfaceProps) => {
+  const [selectedPubkey, setSelectedPubkey] = useState<string | null>(initialPubkey ?? null);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const isMobile = useIsMobile();
   const { clearCacheAndRefetch } = useDMContext();
