@@ -67,11 +67,12 @@ export function useAuthenticatedImage(src: string | undefined) {
           created_at: now,
         });
 
-        // Base64url encode (Blossom spec says base64url without padding)
-        const authHeader = 'Nostr ' + btoa(JSON.stringify(authEvent))
-          .replace(/\+/g, '-')
-          .replace(/\//g, '_')
-          .replace(/=+$/, '');
+        // Standard base64 — khatru uses base64.StdEncoding to decode
+        const authJson = JSON.stringify(authEvent);
+        const authHeader = 'Nostr ' + btoa(authJson);
+
+        console.log('[useAuthenticatedImage] Auth event:', authEvent);
+        console.log('[useAuthenticatedImage] Fetching:', src);
 
         const response = await fetch(src, {
           headers: { Authorization: authHeader },
