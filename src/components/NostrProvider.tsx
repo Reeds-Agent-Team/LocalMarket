@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, createContext, useContext } from 'react';
 import { NostrEvent, NostrFilter, NPool, NRelay1 } from '@nostrify/nostrify';
 import { NostrContext } from '@nostrify/react';
 import { NLoginType, NUser, useNostrLogin } from '@nostrify/react/login';
@@ -8,6 +8,10 @@ import { useAppContext } from '@/hooks/useAppContext';
 interface NostrProviderProps {
   children: React.ReactNode;
 }
+
+// Context that tells the rest of the app whether the relay is authed and ready
+export const RelayReadyContext = createContext(false);
+export const useRelayReady = () => useContext(RelayReadyContext);
 
 /** Synchronously build a signer from a login record, or return undefined. */
 function signerFromLogin(login: NLoginType) {
@@ -22,100 +26,32 @@ function signerFromLogin(login: NLoginType) {
   }
 }
 
-/**
- * Creates a NRelay1 instance that waits for NIP-42 auth to complete
- * before sending any REQ messages. This prevents the relay from closing
- * subscriptions with "auth-required" because we sent REQ before AUTH.
- */
-function createAuthAwareRelay(
-  url: string,
-  signerRef: React.MutableRefObject<NUser['signer'] | undefined>
-): NRelay1 {
-  // Promise that resolves once auth is complete (or no auth needed)
-  let authResolve: () => void;
-  let authReject: (err: Error) => void;
-
-  const authReady = new Promise<void>((resolve, reject) => {
-    authResolve = resolve;
-    authReject = reject;
-  });
-
-  // Set a timeout — if no AUTH challenge arrives within 3s, assume no auth needed
-  const authTimeout = setTimeout(() => {
-    console.log('[NostrProvider] No AUTH challenge received within 3s, proceeding without auth');
-    authResolve();
-  }, 3000);
-
-  const relay = new NRelay1(url, {
-    auth: async (challenge: string) => {
-      clearTimeout(authTimeout);
-      console.log('[NostrProvider] AUTH challenge received, signing...');
-
-      const signer = signerRef.current;
-      if (!signer) {
-        const err = new Error('NIP-42 auth failed: not logged in');
-        authReject(err);
-        throw err;
-      }
-
-      try {
-        const event = await signer.signEvent({
-          kind: 22242,
-          content: '',
-          tags: [
-            ['relay', url],
-            ['challenge', challenge],
-          ],
-          created_at: Math.floor(Date.now() / 1000),
-        });
-
-        console.log('[NostrProvider] AUTH signed, pubkey:', event.pubkey);
-
-        // Give the relay a moment to process the AUTH before we send REQs
-        setTimeout(() => authResolve(), 500);
-
-        return event;
-      } catch (err) {
-        console.error('[NostrProvider] AUTH signing failed:', err);
-        authReject(err instanceof Error ? err : new Error(String(err)));
-        throw err;
-      }
-    },
-    log: (entry) => {
-      console.log('[NRelay1]', entry);
-    },
-  });
-
-  // Patch the req method to wait for auth before proceeding
-  const originalReq = relay.req.bind(relay);
-  relay.req = async function* (filters, opts) {
-    console.log('[NostrProvider] REQ waiting for auth...');
-    await authReady;
-    console.log('[NostrProvider] REQ proceeding after auth, filters:', JSON.stringify(filters));
-    yield* originalReq(filters, opts);
-  };
-
-  return relay;
-}
-
 const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   const { children } = props;
   const { config } = useAppContext();
   const { logins } = useNostrLogin();
   const queryClient = useQueryClient();
+  const [relayReady, setRelayReady] = useState(false);
 
   const relayMetadata = useRef(config.relayMetadata);
   const signerRef = useRef<NUser['signer'] | undefined>(undefined);
+  const setRelayReadyRef = useRef(setRelayReady);
 
-  // Update synchronously on every render so auth callback always has current signer
+  // Update synchronously on every render
   signerRef.current = logins[0] ? signerFromLogin(logins[0]) : undefined;
+  setRelayReadyRef.current = setRelayReady;
+
+  const relayKey = config.relayMetadata.relays.map(r => r.url).join(',');
 
   useEffect(() => {
     relayMetadata.current = config.relayMetadata;
+    // Reset ready state when relay changes — will be set again after auth
+    if (relayKey) {
+      setRelayReady(false);
+    }
     queryClient.invalidateQueries({ queryKey: ['nostr'] });
-  }, [config.relayMetadata, queryClient]);
+  }, [config.relayMetadata, queryClient, relayKey]);
 
-  const relayKey = config.relayMetadata.relays.map(r => r.url).join(',');
   const poolRef = useRef<{ pool: NPool; key: string } | undefined>(undefined);
 
   if (!poolRef.current || poolRef.current.key !== relayKey) {
@@ -123,11 +59,73 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
     console.log('[NostrProvider] Creating pool, relays:', relayKey || '(none)');
 
+    if (!relayKey) {
+      // No relays — create empty pool, not ready
+    }
+
     const pool = new NPool({
       open(url: string) {
         console.log('[NostrProvider] Opening relay:', url);
-        return createAuthAwareRelay(url, signerRef);
+
+        let authResolveFn: () => void;
+        let authRejectFn: (e: Error) => void;
+        const authReady = new Promise<void>((resolve, reject) => {
+          authResolveFn = resolve;
+          authRejectFn = reject;
+        });
+
+        // If no AUTH challenge within 4s, assume open relay
+        const authTimeout = setTimeout(() => {
+          console.log('[NostrProvider] No AUTH challenge — assuming open relay');
+          authResolveFn();
+          setRelayReadyRef.current(true);
+        }, 4000);
+
+        const relay = new NRelay1(url, {
+          auth: async (challenge: string) => {
+            clearTimeout(authTimeout);
+            console.log('[NostrProvider] AUTH challenge received, signing...');
+
+            const signer = signerRef.current;
+            if (!signer) {
+              const err = new Error('Not logged in');
+              authRejectFn(err);
+              throw err;
+            }
+
+            const event = await signer.signEvent({
+              kind: 22242,
+              content: '',
+              tags: [['relay', url], ['challenge', challenge]],
+              created_at: Math.floor(Date.now() / 1000),
+            });
+
+            console.log('[NostrProvider] AUTH signed:', event.pubkey);
+
+            // Wait 800ms for relay to process AUTH, then mark ready
+            setTimeout(() => {
+              console.log('[NostrProvider] Relay ready — unblocking queries');
+              authResolveFn();
+              setRelayReadyRef.current(true);
+            }, 800);
+
+            return event;
+          },
+          log: (entry) => console.log('[NRelay1]', entry),
+        });
+
+        // Patch req to wait for auth
+        const originalReq = relay.req.bind(relay);
+        relay.req = async function* (filters, opts) {
+          console.log('[NostrProvider] REQ waiting for auth...');
+          await authReady;
+          console.log('[NostrProvider] REQ proceeding:', JSON.stringify(filters));
+          yield* originalReq(filters, opts);
+        };
+
+        return relay;
       },
+
       reqRouter(filters: NostrFilter[]) {
         const readRelays = relayMetadata.current.relays
           .filter(r => r.read)
@@ -139,22 +137,34 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         }
         return routes;
       },
+
       eventRouter(_event: NostrEvent) {
         const writeRelays = relayMetadata.current.relays
           .filter(r => r.write)
           .map(r => r.url);
         return [...new Set(writeRelays)];
       },
+
       eoseTimeout: 10000,
     });
 
     poolRef.current = { pool, key: relayKey };
   }
 
+  // When relay becomes ready, invalidate all nostr queries so they re-run
+  useEffect(() => {
+    if (relayReady) {
+      console.log('[NostrProvider] Relay ready — invalidating all nostr queries');
+      queryClient.invalidateQueries({ queryKey: ['nostr'] });
+    }
+  }, [relayReady, queryClient]);
+
   return (
-    <NostrContext.Provider value={{ nostr: poolRef.current.pool }}>
-      {children}
-    </NostrContext.Provider>
+    <RelayReadyContext.Provider value={relayReady}>
+      <NostrContext.Provider value={{ nostr: poolRef.current!.pool }}>
+        {children}
+      </NostrContext.Provider>
+    </RelayReadyContext.Provider>
   );
 };
 

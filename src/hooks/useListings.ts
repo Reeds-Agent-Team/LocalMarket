@@ -2,6 +2,7 @@ import { NostrEvent } from '@nostrify/nostrify';
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
 import { useAppContext } from '@/hooks/useAppContext';
+import { useRelayReady } from '@/components/NostrProvider';
 
 export interface ListingTag {
   title?: string;
@@ -58,11 +59,11 @@ export function useListings(options: UseListingsOptions = {}) {
 
   // Include relay URL in query key so queries re-run when relay changes
   const relayUrl = config.relayMetadata.relays[0]?.url ?? null;
-  const hasRelay = Boolean(relayUrl);
+  const relayReady = useRelayReady();
 
   return useQuery({
     queryKey: ['nostr', 'listings', relayUrl, { categories, authors, limit }],
-    enabled: hasRelay,
+    enabled: relayReady,
     queryFn: async ({ signal }) => {
       const filter: Record<string, unknown> = {
         kinds: [30402],
@@ -97,7 +98,7 @@ export function useListing(pubkey: string | undefined, identifier: string | unde
   const { config } = useAppContext();
 
   const relayUrl = config.relayMetadata.relays[0]?.url ?? null;
-  const hasRelay = Boolean(relayUrl);
+  const relayReady = useRelayReady();
 
   return useQuery({
     queryKey: ['nostr', 'listing', relayUrl, pubkey, identifier],
@@ -114,7 +115,7 @@ export function useListing(pubkey: string | undefined, identifier: string | unde
 
       return event;
     },
-    enabled: hasRelay && Boolean(pubkey && identifier),
+    enabled: relayReady && Boolean(pubkey && identifier),
     staleTime: 30000,
     retry: 2,
   });

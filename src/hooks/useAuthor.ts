@@ -2,18 +2,18 @@ import { type NostrEvent, type NostrMetadata, NSchema as n } from '@nostrify/nos
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
 import { useAppContext } from '@/hooks/useAppContext';
+import { useRelayReady } from '@/components/NostrProvider';
 
 export function useAuthor(pubkey: string | undefined) {
   const { nostr } = useNostr();
   const { config } = useAppContext();
 
   const relayUrl = config.relayMetadata.relays[0]?.url ?? null;
-  const hasRelay = Boolean(relayUrl);
+  const relayReady = useRelayReady();
 
   return useQuery<{ event?: NostrEvent; metadata?: NostrMetadata }>({
-    // Include relay URL in key so cache invalidates when relay changes
     queryKey: ['nostr', 'author', relayUrl, pubkey ?? ''],
-    enabled: hasRelay && Boolean(pubkey),
+    enabled: relayReady && Boolean(pubkey),
     queryFn: async () => {
       if (!pubkey) return {};
 
