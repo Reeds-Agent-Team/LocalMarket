@@ -43,44 +43,55 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   }, [config.relayMetadata, queryClient]);
 
   // Recreate the pool whenever the relay list changes so new relays connect
-  // and removed relays disconnect cleanly.
   const relayKey = config.relayMetadata.relays.map(r => r.url).join(',');
   const poolRef = useRef<{ pool: NPool; key: string } | undefined>(undefined);
 
   if (!poolRef.current || poolRef.current.key !== relayKey) {
-    // Dispose old pool connections if relay list changed
-    if (poolRef.current) {
-      // NPool doesn't have an explicit dispose, but creating a new one
-      // lets old WebSocket connections naturally close via GC
-      poolRef.current = undefined;
-    }
+    poolRef.current = undefined;
+
+    console.log('[NostrProvider] Creating pool with relays:', relayKey || '(none)');
+    console.log('[NostrProvider] Signer available:', !!signerRef.current);
+    console.log('[NostrProvider] Login type:', logins[0]?.type ?? 'none');
 
     const pool = new NPool({
       open(url: string) {
+        console.log('[NostrProvider] Opening relay connection:', url);
         return new NRelay1(url, {
-          // NIP-42: respond to AUTH challenges by signing a kind 22242 event
           auth: async (challenge: string) => {
+            console.log('[NostrProvider] AUTH challenge received from:', url, 'challenge:', challenge);
             const signer = signerRef.current;
             if (!signer) {
+              console.error('[NostrProvider] AUTH failed — no signer available');
               throw new Error('NIP-42 auth failed: no signer available. Please log in.');
             }
-            return signer.signEvent({
-              kind: 22242,
-              content: '',
-              tags: [
-                ['relay', url],
-                ['challenge', challenge],
-              ],
-              created_at: Math.floor(Date.now() / 1000),
-            });
+            try {
+              const event = await signer.signEvent({
+                kind: 22242,
+                content: '',
+                tags: [
+                  ['relay', url],
+                  ['challenge', challenge],
+                ],
+                created_at: Math.floor(Date.now() / 1000),
+              });
+              console.log('[NostrProvider] AUTH event signed successfully, pubkey:', event.pubkey);
+              return event;
+            } catch (err) {
+              console.error('[NostrProvider] AUTH signing failed:', err);
+              throw err;
+            }
+          },
+          log: (entry) => {
+            console.log('[NRelay1]', entry);
           },
         });
       },
       reqRouter(filters: NostrFilter[]) {
-        const routes = new Map<string, NostrFilter[]>();
         const readRelays = relayMetadata.current.relays
           .filter(r => r.read)
           .map(r => r.url);
+        console.log('[NostrProvider] Routing query to relays:', readRelays, 'filters:', JSON.stringify(filters));
+        const routes = new Map<string, NostrFilter[]>();
         for (const url of readRelays) {
           routes.set(url, filters);
         }
