@@ -4,6 +4,7 @@ import { useSeoMeta } from '@unhead/react';
 import { nip19 } from 'nostr-tools';
 
 import { X, PlusCircle, Loader2, ArrowLeft, ImagePlus, Camera } from 'lucide-react';
+import { AuthenticatedImage } from '@/components/AuthenticatedImage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -225,7 +226,7 @@ export function CreateListingPage() {
                 <div className="flex flex-wrap gap-3">
                   {images.map((img, i) => (
                     <div key={i} className="relative w-24 h-24 rounded-lg overflow-hidden border border-zinc-700 group">
-                      <img src={img} alt="" className="w-full h-full object-cover" />
+                      <AuthenticatedImage src={img} alt="" className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => setImages(prev => prev.filter((_, j) => j !== i))}

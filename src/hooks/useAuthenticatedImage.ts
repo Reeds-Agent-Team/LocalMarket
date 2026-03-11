@@ -3,8 +3,14 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAppContext } from '@/hooks/useAppContext';
 
 /**
- * Fetches a Blossom image with NIP-98 HTTP Auth and returns a local blob URL.
- * Required because zooid's Blossom server requires auth on every GET request.
+ * Fetches a Blossom image with BUD-11 auth (kind 24242) and returns a local blob URL.
+ *
+ * Blossom GET auth requires kind 24242 with:
+ *   - t: "get"
+ *   - expiration: unix timestamp in the future
+ *   - x: sha256 hash (optional but good practice)
+ *
+ * This is different from NIP-98 (kind 27235) which is for general HTTP auth.
  */
 export function useAuthenticatedImage(src: string | undefined) {
   const { user } = useCurrentUser();
@@ -17,7 +23,7 @@ export function useAuthenticatedImage(src: string | undefined) {
   const blossomServer = config.blossomServer;
 
   // Only intercept images from our Blossom server — pass through everything else
-  const needsAuth = src && blossomServer && src.startsWith(blossomServer);
+  const needsAuth = Boolean(src && blossomServer && src.startsWith(blossomServer));
 
   useEffect(() => {
     if (!src) return;
@@ -39,19 +45,33 @@ export function useAuthenticatedImage(src: string | undefined) {
 
     const fetchImage = async () => {
       try {
-        // Build NIP-98 auth event for this specific URL
         const now = Math.floor(Date.now() / 1000);
+
+        // Extract sha256 from URL path — Blossom URLs are /<sha256>[.ext]
+        const sha256Match = src.match(/\/([a-f0-9]{64})(\.[^/]+)?$/);
+        const sha256 = sha256Match?.[1];
+
+        // Build BUD-11 auth event (kind 24242, t=get, expiration required)
+        const tags: string[][] = [
+          ['t', 'get'],
+          ['expiration', String(now + 60)], // valid for 60 seconds
+        ];
+        if (sha256) {
+          tags.push(['x', sha256]);
+        }
+
         const authEvent = await user.signer.signEvent({
-          kind: 27235,
-          content: '',
-          tags: [
-            ['u', src],
-            ['method', 'GET'],
-          ],
+          kind: 24242,
+          content: 'Get Blob',
+          tags,
           created_at: now,
         });
 
-        const authHeader = 'Nostr ' + btoa(JSON.stringify(authEvent));
+        // Base64url encode (Blossom spec says base64url without padding)
+        const authHeader = 'Nostr ' + btoa(JSON.stringify(authEvent))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
 
         const response = await fetch(src, {
           headers: { Authorization: authHeader },
@@ -63,10 +83,7 @@ export function useAuthenticatedImage(src: string | undefined) {
 
         const blob = await response.blob();
 
-        if (cancelled) {
-          URL.revokeObjectURL(URL.createObjectURL(blob));
-          return;
-        }
+        if (cancelled) return;
 
         // Revoke previous blob URL to avoid memory leaks
         if (prevBlobUrl.current) {
@@ -88,10 +105,8 @@ export function useAuthenticatedImage(src: string | undefined) {
 
     fetchImage();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [src, needsAuth, user]);
+    return () => { cancelled = true; };
+  }, [src, needsAuth, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup blob URL on unmount
   useEffect(() => {
