@@ -16,9 +16,10 @@ import {
 interface DMMessagingInterfaceProps {
   className?: string;
   initialPubkey?: string;
+  initialMessage?: string;
 }
 
-export const DMMessagingInterface = ({ className, initialPubkey }: DMMessagingInterfaceProps) => {
+export const DMMessagingInterface = ({ className, initialPubkey, initialMessage }: DMMessagingInterfaceProps) => {
   const [selectedPubkey, setSelectedPubkey] = useState<string | null>(initialPubkey ?? null);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -76,6 +77,7 @@ export const DMMessagingInterface = ({ className, initialPubkey }: DMMessagingIn
             pubkey={selectedPubkey}
             onBack={isMobile ? handleBack : undefined}
             className="h-full"
+            initialMessage={selectedPubkey === initialPubkey ? initialMessage : undefined}
           />
         </div>
       </div>

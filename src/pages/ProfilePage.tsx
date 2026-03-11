@@ -1,6 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { nip19 } from 'nostr-tools';
+import { Copy, Check } from 'lucide-react';
+import { useState } from 'react';
 import { MessageSquare, Globe, AtSign, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AuthenticatedAvatar } from '@/components/AuthenticatedAvatar';
@@ -125,9 +127,7 @@ export function ProfilePage() {
                   {authorMeta.website.replace(/^https?:\/\//, '')}
                 </a>
               )}
-              <Badge variant="secondary" className="bg-zinc-800/60 text-zinc-500 border-zinc-700/40 text-xs font-mono">
-                {pubkey.slice(0, 8)}…{pubkey.slice(-6)}
-              </Badge>
+              <CopyNpub pubkey={pubkey} />
             </div>
           </div>
         </div>
@@ -169,5 +169,28 @@ export function ProfilePage() {
         </div>
       </div>
     </Layout>
+  );
+}
+
+function CopyNpub({ pubkey }: { pubkey: string }) {
+  const [copied, setCopied] = useState(false);
+  const npub = nip19.npubEncode(pubkey);
+  const display = npub.slice(0, 12) + '…' + npub.slice(-6);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(npub);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-800/60 border border-zinc-700/40 text-xs font-mono text-zinc-500 hover:text-zinc-300 hover:border-zinc-600 transition-colors"
+      title={npub}
+    >
+      {display}
+      {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+    </button>
   );
 }

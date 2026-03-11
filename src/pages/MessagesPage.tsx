@@ -14,6 +14,8 @@ export function MessagesPage() {
   const { npub } = useParams<{ npub?: string }>();
   const { user } = useCurrentUser();
   const location = useLocation();
+  const locationState = location.state as { subject?: string } | null;
+  const initialMessage = locationState?.subject ? `Hi, I'm interested in your listing: ${locationState.subject}` : undefined;
 
   // Resolve initial pubkey from URL param
   let initialPubkey: string | undefined;
@@ -48,7 +50,7 @@ export function MessagesPage() {
       <div className="max-w-6xl mx-auto px-4 py-6 h-[calc(100vh-4rem-4rem)] md:h-[calc(100vh-4rem)] flex flex-col">
         <h1 className="text-xl font-bold text-zinc-100 mb-4">Messages</h1>
         <DMProvider config={{ enabled: true }}>
-          <DMMessagingInterface className="flex-1 min-h-0" initialPubkey={initialPubkey} />
+          <DMMessagingInterface className="flex-1 min-h-0" initialPubkey={initialPubkey} initialMessage={initialMessage} />
         </DMProvider>
       </div>
     </Layout>

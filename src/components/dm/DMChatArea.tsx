@@ -22,6 +22,7 @@ interface DMChatAreaProps {
   pubkey: string | null;
   onBack?: () => void;
   className?: string;
+  initialMessage?: string;
 }
 
 const MessageBubble = memo(({
@@ -213,12 +214,12 @@ const EmptyState = ({ isLoading }: { isLoading: boolean }) => {
   );
 };
 
-export const DMChatArea = ({ pubkey, onBack, className }: DMChatAreaProps) => {
+export const DMChatArea = ({ pubkey, onBack, className, initialMessage }: DMChatAreaProps) => {
   const { user } = useCurrentUser();
   const { sendMessage, protocolMode, isLoading } = useDMContext();
   const { messages, hasMoreMessages, loadEarlierMessages } = useConversationMessages(pubkey || '');
   
-  const [messageText, setMessageText] = useState('');
+  const [messageText, setMessageText] = useState(initialMessage ?? '');
   const [isSending, setIsSending] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   

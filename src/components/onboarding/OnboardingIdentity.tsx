@@ -113,18 +113,11 @@ function NewUserForm({ onComplete }: { onComplete: () => void }) {
     }
     setIsSubmitting(true);
     try {
-      // Publish kind 0 profile
+      // Store the profile in localStorage so it can be published once the relay
+      // is connected (after the QR scan step). The relay isn't available yet here.
       const metadata: Record<string, string> = { name: name.trim() };
       if (pfpUrl) metadata.picture = pfpUrl;
-      await publish({
-        kind: 0,
-        content: JSON.stringify(metadata),
-        tags: [],
-      });
-      onComplete();
-    } catch {
-      // Profile publish may fail if relay isn't connected yet — that's ok,
-      // the relay step comes next. Just proceed.
+      localStorage.setItem('localmarket:pending-profile', JSON.stringify(metadata));
       onComplete();
     } finally {
       setIsSubmitting(false);
