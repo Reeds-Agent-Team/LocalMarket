@@ -1,12 +1,18 @@
-import { ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { ShoppingBag, MessageSquare, Settings, PlusCircle, Store, ShieldAlert } from 'lucide-react';
+import { ReactNode, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ShoppingBag, MessageSquare, Settings, PlusCircle, Store, ShieldAlert, User, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { genUserName } from '@/lib/genUserName';
 import { AuthenticatedAvatar } from '@/components/AuthenticatedAvatar';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface LayoutProps {
   children: ReactNode;
@@ -67,13 +73,7 @@ export function Layout({ children }: LayoutProps) {
                     List Item
                   </Link>
                 </Button>
-                <Link to={`/profile/${user.pubkey}`} className="shrink-0">
-                  <AuthenticatedAvatar
-                    src={metadata?.picture}
-                    className="w-8 h-8 ring-2 ring-zinc-700 hover:ring-violet-500 transition-all"
-                    fallback={<span className="text-xs text-zinc-300">{genUserName(user.pubkey).slice(0, 2).toUpperCase()}</span>}
-                  />
-                </Link>
+                <ProfileMenu pubkey={user.pubkey} picture={metadata?.picture} name={metadata?.name} />
               </>
             ) : (
               <LoginArea className="max-w-48" />
@@ -117,5 +117,44 @@ export function Layout({ children }: LayoutProps) {
         {children}
       </main>
     </div>
+  );
+}
+
+function ProfileMenu({ pubkey, picture, name }: { pubkey: string; picture?: string; name?: string }) {
+  const navigate = useNavigate();
+  // Use name initials if available, otherwise first 2 chars of pubkey
+  const initials = name
+    ? name.trim().slice(0, 2).toUpperCase()
+    : pubkey.slice(0, 2).toUpperCase();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="shrink-0 rounded-full ring-2 ring-zinc-700 hover:ring-violet-500 transition-all outline-none focus-visible:ring-violet-500">
+          <AuthenticatedAvatar
+            src={picture}
+            className="w-8 h-8"
+            fallback={<span className="text-xs text-zinc-300">{initials}</span>}
+          />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44 bg-zinc-900 border-zinc-800">
+        <DropdownMenuItem
+          onClick={() => navigate(`/profile/${pubkey}`)}
+          className="text-zinc-200 focus:bg-zinc-800 cursor-pointer gap-2"
+        >
+          <User className="w-4 h-4 text-zinc-400" />
+          View Profile
+        </DropdownMenuItem>
+        <DropdownMenuSeparator className="bg-zinc-800" />
+        <DropdownMenuItem
+          onClick={() => navigate('/settings')}
+          className="text-zinc-200 focus:bg-zinc-800 cursor-pointer gap-2"
+        >
+          <Pencil className="w-4 h-4 text-zinc-400" />
+          Edit Profile
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
